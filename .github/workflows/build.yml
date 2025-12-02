@@ -64,7 +64,117 @@ jobs:
           files: |
             dist/*.tar.gz
             dist/*.whl
+ That's a great request to modernize your workflow. Adding a Docker build and push job using the GitHub Container Registry (GHCR) is a standard and highly recommended practice.
 
+I'll add a new job named docker-release that builds the image and pushes it to ghcr.io.
+Extended GitHub Actions Workflow
+YAML
+
+name: Build and Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write  # For trusted publishing to PyPI
+  # Required for pushing to GHCR
+  packages: write 
+
+jobs:
+  extract-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      year: ${{ steps.version.outputs.year }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+          
+      - name: Extract version and year
+        id: version
+        run: |
+          VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          YEAR=$(date +%Y)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "year=$YEAR" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION, Year: $YEAR"
+
+  pypi-release:
+    needs: extract-version
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    environment: pypi
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+          cache: 'pip'
+          
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+          
+      - name: Build distribution
+        run: python -m build
+        
+      - name: Upload to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Uses trusted publishing, no need for tokens
+          verbose: true
+          
+      - name: Upload dist files to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.whl
+
+  # --- NEW JOB: Docker Build and Push to GHCR ---
+  docker-release:
+    needs: extract-version
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ needs.extract-version.outputs.version }}
+            type=sha
+            type=raw,value=latest,enable=${{ github.event_name == 'release' }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
   build-binaries:
     needs: extract-version
     strategy:
