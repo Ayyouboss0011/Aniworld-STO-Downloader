@@ -380,22 +380,18 @@ AniWorld Downloader can be easily deployed using Docker for containerized enviro
 
 2. Build and start the container:
    ```shell
-   docker-compose up -d --build
+   docker-compose up -d 
    ```
 
 ### Using Docker Directly
 
 ```shell
-# Build the image
-docker build -t aniworld-downloader .
-
-# Run the container
 docker run -d \
   --name aniworld-downloader \
   -p 8080:8080 \
   -v $(pwd)/downloads:/app/downloads \
   -v $(pwd)/data:/app/data \
-  aniworld-downloader
+  ghcr.io/phoenixthrush/aniworld-downloader
 ```
 
 ### Docker Configuration
@@ -404,8 +400,8 @@ The Docker container runs with:
 - **User Security**: Non-root user for enhanced security
 - **System Dependencies**: Includes ffmpeg for video processing
 - **Web Interface**: Enabled by default with authentication and network exposure
-- **Download Directory**: `/app/downloads` (mapped to host)
-- **Port**: 8080 (configurable via environment variables)
+- **Download Directory**: `/app/downloads` (mapped to host via volume bind)
+- **Port**: 8080 (configurable via docker port exposure)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
