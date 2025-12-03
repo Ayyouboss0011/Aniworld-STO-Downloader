@@ -1,12 +1,6 @@
 <a id="readme-top"></a>
 # AniWorld Downloader
 
-THIS FORK ADRESSES:
-Docker container ready in github container registry (done)
-Persistence of users in docker (Planned)
-oauth support (Planned)
-
-
 AniWorld Downloader is a command-line tool for downloading and streaming content from aniworld.to and s.to. Currently available for Windows, macOS and Linux, it supports LoadX, VOE, Vidmoly, Filemoon, Luluvdo, Doodstream, Vidoza, SpeedFiles and Streamtape.
 
 [![PyPI Downloads](https://static.pepy.tech/badge/aniworld)](https://pepy.tech/projects/aniworld)
