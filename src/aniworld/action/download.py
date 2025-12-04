@@ -34,6 +34,17 @@ def _create_quiet_logger():
     return QuietLogger()
 
 
+def _format_bytes(bytes_value: int) -> str:
+    """Format bytes to human-readable string (e.g., 1.5GiB, 500MiB)."""
+    size = float(bytes_value)
+    for unit in ['B', 'KiB', 'MiB', 'GiB', 'TiB']:
+        if size < 1024.0:
+            return f"{size:.2f}{unit}"
+        size /= 1024.0
+    # Just in case :^)
+    return f"{size:.2f}PiB"
+
+
 def _format_episode_title(anime: Anime, episode) -> str:
     """Format episode title for logging - matches the actual filename format."""
     if episode.season == 0:
@@ -151,6 +162,26 @@ class CliProgressBar:
             # Get speed and ETA with cleaning
             speed_str = d.get("_speed_str", "N/A")
             eta_str = d.get("_eta_str", "N/A")
+            
+            # Try multiple methods to get total size
+            total_bytes_str = "N/A"
+            
+            # Method 1: Use formatted string from yt-dlp (check for actual content, not just existence)
+            _total_bytes_str = d.get("_total_bytes_str", "").strip()
+            if _total_bytes_str and _total_bytes_str != "N/A":
+                total_bytes_str = _total_bytes_str
+            else:
+                # Try estimate string
+                _total_bytes_estimate_str = d.get("_total_bytes_estimate_str", "").strip()
+                if _total_bytes_estimate_str and _total_bytes_estimate_str != "N/A":
+                    total_bytes_str = _total_bytes_estimate_str
+                # Method 2: Calculate from raw bytes
+                elif d.get("total_bytes"):
+                    total_bytes = d.get("total_bytes")
+                    total_bytes_str = _format_bytes(total_bytes)
+                elif d.get("total_bytes_estimate"):
+                    total_bytes = d.get("total_bytes_estimate")
+                    total_bytes_str = f"~{_format_bytes(total_bytes)}"
 
             # Clean ANSI color codes
             import re
@@ -164,6 +195,13 @@ class CliProgressBar:
             else:
                 eta_str = "N/A"
 
+            if total_bytes_str != "N/A" and total_bytes_str:
+                total_bytes_str = re.sub(
+                    r"\x1b\[[0-9;]*m", "", str(total_bytes_str)
+                ).strip()
+            else:
+                total_bytes_str = "N/A"
+
             # Create progress bar
             bar_width = 40
             filled_width = int(bar_width * percentage / 100)
@@ -172,7 +210,7 @@ class CliProgressBar:
             # Only update if percentage changed significantly to reduce flickering
             if abs(percentage - self.last_percentage) >= 0.5:
                 sys.stdout.write(
-                    f"\r[{bar}] {percentage:.1f}% | Speed: {speed_str} | ETA: {eta_str}  "
+                    f"\r[{bar}] {percentage:.1f}% | Size: {total_bytes_str} | Speed: {speed_str} | ETA: {eta_str}  "
                 )
                 sys.stdout.flush()
                 self.last_percentage = percentage
