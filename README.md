@@ -371,17 +371,43 @@ These dependencies are automatically installed when you set up AniWorld Download
 AniWorld Downloader can be easily deployed using Docker for containerized environments.
 
 ### Using Docker Compose (Recommended)
+This option uses a minimal setup, only requiring the `compose.yml` file to run the pre-built image from the GitHub Container Registry.
 
-1. Clone the repository:
-   ```shell
-   git clone https://github.com/phoenixthrush/AniWorld-Downloader.git
-   cd AniWorld-Downloader
-   ```
+1.  **Create a dedicated directory and navigate into it:**
+    ```shell
+    mkdir aniworld-downloader
+    cd aniworld-downloader
+    ```
 
-2. Build and start the container:
-   ```shell
-   docker-compose up -d 
-   ```
+2.  **Create required data and download directories:**
+    * This step ensures that the host folders for data and downloads exist, which is a good practice for proper permission mapping and reliable container startup.
+
+    These are the commands if you are following the example:
+    ```shell
+    mkdir downloads
+    mkdir data
+    ```
+
+3.  **Create the `docker-compose.yml` file with the following content:**
+
+    ```yaml
+    services:
+      aniworld:
+        container_name: aniworld-downloader
+        image: ghcr.io/phoenixthrush/aniworld-downloader
+        ports:
+          - "8080:8080"
+        volumes:
+          - ./downloads:/app/downloads
+          - ./data:/app/data
+        restart: unless-stopped
+    ```
+    > **Note:** You can **relocate** the `./downloads` path to any location on your host disk where you want the downloaded files to be saved. Keep in mind to create that folder!
+
+4.  **Start the container in detached mode:**
+    ```shell
+    docker-compose up -d
+    ```
 
 ### Using Docker Directly
 
