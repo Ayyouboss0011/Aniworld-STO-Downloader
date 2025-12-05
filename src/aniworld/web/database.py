@@ -12,10 +12,12 @@ from pathlib import Path
 
 def get_database_path() -> str:
     """Get the persistent database path based on OS"""
-    if os.name == "nt":  # Windows
+    if os.path.exists('/.dockerenv'): # 2. Docker environment
+        db_dir = "/app/data/db"
+    elif os.name == "nt":  # 2. Windows
         appdata = os.environ.get("APPDATA", os.path.expanduser("~"))
         db_dir = os.path.join(appdata, "aniworld")
-    else:  # Unix/Linux/macOS
+    else:  # 3. Linux and others
         db_dir = os.path.expanduser("~/.local/share/aniworld")
 
     # Ensure directory exists
