@@ -12,7 +12,7 @@ from pathlib import Path
 
 def get_database_path() -> str:
     """Get the persistent database path based on OS"""
-    if os.path.exists('/.dockerenv'): # 2. Docker environment
+    if os.path.exists("/.dockerenv"):  # 2. Docker environment
         db_dir = "/app/data"
     elif os.name == "nt":  # 2. Windows
         appdata = os.environ.get("APPDATA", os.path.expanduser("~"))
