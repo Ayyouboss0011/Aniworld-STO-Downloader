@@ -20,6 +20,7 @@ class DownloadQueueManager:
         self.current_download_id = None
         self.worker_thread = None
         self._stop_event = threading.Event()
+        self._cancelled_jobs = set()
 
         # In-memory download queue storage
         self._next_id = 1
@@ -47,6 +48,21 @@ class DownloadQueueManager:
             if self.worker_thread:
                 self.worker_thread.join(timeout=5)
             logging.info("Download queue processor stopped")
+
+    def cancel_download(self, queue_id: int) -> bool:
+        """Mark a download job as cancelled"""
+        with self._queue_lock:
+            if queue_id in self._active_downloads:
+                job = self._active_downloads[queue_id]
+                if job["status"] in ["queued", "downloading"]:
+                    self._cancelled_jobs.add(queue_id)
+                    if job["status"] == "queued":
+                        # If still queued, we can just mark it failed immediately
+                        self._update_download_status(
+                            queue_id, "failed", error_message="Download cancelled by user"
+                        )
+                    return True
+            return False
 
     def add_download(
         self,
@@ -147,7 +163,13 @@ class DownloadQueueManager:
 
                 if job:
                     self.current_download_id = job["id"]
-                    self._process_download_job(job)
+                    try:
+                        self._process_download_job(job)
+                    except KeyboardInterrupt:
+                        logging.info(f"Job {job['id']} was interrupted")
+                        self._update_download_status(
+                            job["id"], "failed", error_message="Download stopped by user"
+                        )
                     self.current_download_id = None
                 else:
                     # No jobs, wait a bit
@@ -223,7 +245,7 @@ class DownloadQueueManager:
 
             for anime in anime_list:
                 for episode in anime.episode_list:
-                    if self._stop_event.is_set():
+                    if self._stop_event.is_set() or queue_id in self._cancelled_jobs:
                         break
 
                     episode_info = f"{anime.title} - Episode {episode.episode} (Season {episode.season})"
@@ -255,7 +277,7 @@ class DownloadQueueManager:
                             """Handle progress updates from yt-dlp and update web interface"""
                             try:
                                 # Check if we should stop during download
-                                if self._stop_event.is_set():
+                                if self._stop_event.is_set() or queue_id in self._cancelled_jobs:
                                     # Signal yt-dlp to stop by raising an exception
                                     raise KeyboardInterrupt("Download stopped by user")
 
@@ -397,6 +419,15 @@ class DownloadQueueManager:
                         logging.error(f"Error downloading {episode_info}: {e}")
 
                     current_episode_index += 1
+
+            # Check if cancelled
+            if queue_id in self._cancelled_jobs:
+                self._update_download_status(
+                    queue_id, "failed", error_message="Download cancelled by user"
+                )
+                with self._queue_lock:
+                    self._cancelled_jobs.discard(queue_id)
+                return
 
             # Final status update
             total_attempted = successful_downloads + failed_downloads

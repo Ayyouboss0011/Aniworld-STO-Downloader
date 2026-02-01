@@ -13,7 +13,7 @@ import curses
 import requests
 
 from .ascii_art import display_ascii_art
-from .config import DEFAULT_REQUEST_TIMEOUT, ANIWORLD_TO
+from .config import DEFAULT_REQUEST_TIMEOUT, ANIWORLD_TO, S_TO
 
 
 # Constants for better maintainability
@@ -68,30 +68,70 @@ def _get_user_input() -> str:
 
 
 @lru_cache(maxsize=128)
-def _cached_search_request(search_url: str) -> str:
+def _cached_search_request(search_url: str, headers_json: str = "{}") -> str:
     """
     Cached HTTP request for search results.
 
     Args:
         search_url: The URL to fetch data from
+        headers_json: JSON string of headers (for caching)
 
     Returns:
         str: Raw response text
     """
-    response = requests.get(search_url, timeout=DEFAULT_REQUEST_TIMEOUT)
+    headers = json.loads(headers_json)
+    response = requests.get(search_url, headers=headers, timeout=DEFAULT_REQUEST_TIMEOUT)
     response.raise_for_status()
     return response.text.strip()
 
 
+def fetch_anime_list(url: str, headers: Optional[Dict] = None) -> Union[List[Dict], Dict]:
+    """
+    Fetch and parse anime list from search API.
+
+    Args:
+        url: The search API URL
+        headers: Optional HTTP headers
+
+    Returns:
+        Union[List[Dict], Dict]: List of anime dictionaries or dict for s.to
+
+    Raises:
+        ValueError: If unable to fetch or parse anime data
+    """
+    try:
+        headers_json = json.dumps(headers or {})
+        clean_text = _cached_search_request(url, headers_json=headers_json)
+
+        # First attempt: direct JSON parsing
+        try:
+            decoded_data = json.loads(html.unescape(clean_text))
+            return decoded_data
+        except json.JSONDecodeError:
+            # Second attempt: clean problematic characters
+            cleaned_text = _clean_json_text(clean_text)
+            try:
+                decoded_data = json.loads(cleaned_text)
+                return decoded_data
+            except json.JSONDecodeError as err:
+                logging.error("Failed to parse JSON after cleaning: %s", err)
+                raise ValueError("Could not parse anime search results") from err
+
+    except requests.RequestException as err:
+        logging.error("Failed to fetch anime list: %s", err)
+        raise ValueError("Could not fetch anime data from server") from err
+
+
 def search_anime(
-    keyword: Optional[str] = None, only_return: bool = False
+    keyword: Optional[str] = None, only_return: bool = False, site: str = "aniworld.to"
 ) -> Union[str, List[Dict]]:
     """
-    Search for anime series on AniWorld.
+    Search for anime series on AniWorld or s.to.
 
     Args:
         keyword: Search term (if None, prompts user)
         only_return: If True, returns raw anime list instead of processing
+        site: The site to search on ("aniworld.to" or "s.to")
 
     Returns:
         Union[str, List[Dict]]: Either selected anime link or list of anime
@@ -107,8 +147,31 @@ def search_anime(
     else:
         keyword = _validate_keyword(keyword)
 
-    search_url = f"{ANIWORLD_TO}/ajax/seriesSearch?keyword={quote(keyword)}"
-    anime_list = fetch_anime_list(search_url)
+    headers = {}
+    if site == "s.to":
+        search_url = f"{S_TO}/api/search/suggest?term={quote(keyword)}"
+        headers["X-Requested-With"] = "XMLHttpRequest"
+    else:
+        search_url = f"{ANIWORLD_TO}/ajax/seriesSearch?keyword={quote(keyword)}"
+
+    anime_list = fetch_anime_list(search_url, headers=headers)
+
+    # For s.to, the response is {"shows": [...], "people": [], "genres": []}
+    if site == "s.to" and isinstance(anime_list, dict):
+        shows = anime_list.get("shows", [])
+        # Map s.to format to our standard format
+        anime_list = []
+        for show in shows:
+            # s.to uses "url" instead of "link" and it's often absolute or missing base
+            link = show.get("url", "")
+            if link.startswith("/"):
+                link = link.lstrip("/")
+            
+            anime_list.append({
+                "name": show.get("name"),
+                "link": link,
+                "productionYear": "" # s.to suggest API doesn't provide year
+            })
 
     if only_return:
         return anime_list
@@ -139,39 +202,6 @@ def _clean_json_text(text: str) -> str:
     return clean_text
 
 
-def fetch_anime_list(url: str) -> List[Dict]:
-    """
-    Fetch and parse anime list from search API.
-
-    Args:
-        url: The search API URL
-
-    Returns:
-        List[Dict]: List of anime dictionaries
-
-    Raises:
-        ValueError: If unable to fetch or parse anime data
-    """
-    try:
-        clean_text = _cached_search_request(url)
-
-        # First attempt: direct JSON parsing
-        try:
-            decoded_data = json.loads(html.unescape(clean_text))
-            return decoded_data if isinstance(decoded_data, list) else []
-        except json.JSONDecodeError:
-            # Second attempt: clean problematic characters
-            cleaned_text = _clean_json_text(clean_text)
-            try:
-                decoded_data = json.loads(cleaned_text)
-                return decoded_data if isinstance(decoded_data, list) else []
-            except json.JSONDecodeError as err:
-                logging.error("Failed to parse JSON after cleaning: %s", err)
-                raise ValueError("Could not parse anime search results") from err
-
-    except requests.RequestException as err:
-        logging.error("Failed to fetch anime list: %s", err)
-        raise ValueError("Could not fetch anime data from server") from err
 
 
 def fetch_popular_and_new_anime() -> Dict[str, List[Dict[str, str]]]:

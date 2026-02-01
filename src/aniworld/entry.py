@@ -91,7 +91,12 @@ def _group_episodes_by_series(links: List[str]) -> List[Anime]:
         if link:
             parts = link.split("/")
             try:
-                series_slug = parts[parts.index("stream") + 1]
+                if "stream" in parts:
+                    series_slug = parts[parts.index("stream") + 1]
+                elif "serie" in parts:
+                    series_slug = parts[parts.index("serie") + 1]
+                else:
+                    raise ValueError("Neither 'stream' nor 'serie' found in URL")
             except (ValueError, IndexError):
                 logging.warning("Invalid episode link format: %s", link)
                 continue

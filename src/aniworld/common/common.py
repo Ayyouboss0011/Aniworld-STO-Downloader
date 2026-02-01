@@ -22,6 +22,7 @@ from ..config import (
     DEFAULT_APPDATA_PATH,
     MPV_PATH,
     SYNCPLAY_PATH,
+    DEFAULT_HEADERS,
 )
 
 # Global cache for season/movie counts to avoid duplicate requests
@@ -42,11 +43,18 @@ PACKAGE_MANAGERS = {
 
 
 def _make_request(
-    url: str, timeout: int = DEFAULT_REQUEST_TIMEOUT
+    url: str, timeout: int = DEFAULT_REQUEST_TIMEOUT, headers: Optional[Dict] = None
 ) -> requests.Response:
-    """Make HTTP request with error handling."""
+    """Make HTTP request with error handling and default headers."""
     try:
-        response = requests.get(url, timeout=timeout)
+        request_headers = DEFAULT_HEADERS.copy()
+        if headers:
+            request_headers.update(headers)
+
+        # Allow redirects for s.to which might redirect from /stream/ to /serie/
+        response = requests.get(
+            url, timeout=timeout, headers=request_headers, allow_redirects=True
+        )
         response.raise_for_status()
         return response
     except requests.RequestException as err:
@@ -488,18 +496,42 @@ def get_season_episode_count(slug: str, link: str = ANIWORLD_TO) -> Dict[int, in
 
     try:
         if S_TO not in link:
-            base_url = f"{ANIWORLD_TO}/anime/stream/{slug}/"
+            base_url = f"{ANIWORLD_TO}/anime/stream/{slug}"
         else:
-            base_url = f"{S_TO}/serie/stream/{slug}/"
+            # S.TO might use /serie/slug instead of /serie/stream/slug now, but let's stick to what we know works or redirects
+            # The search usually returns /serie/stream/slug or /serie/slug
+            # We'll use the provided link if it looks like a full URL containing the slug, otherwise construct it
+            if link.startswith("http") and slug in link:
+                base_url = link.rstrip("/")
+            else:
+                base_url = f"{S_TO}/serie/stream/{slug}"
+
         response = _make_request(base_url)
+        # Update base_url in case of redirect (e.g. s.to/serie/stream/x -> s.to/serie/x)
+        final_url = response.url.rstrip("/")
         soup = BeautifulSoup(response.content, "html.parser")
 
         season_meta = soup.find("meta", itemprop="numberOfSeasons")
-        number_of_seasons = int(season_meta["content"]) if season_meta else 0
+        if season_meta:
+            number_of_seasons = int(season_meta["content"])
+        else:
+            # Fallback: Parse season links from the page
+            season_links = soup.find_all("a", href=True)
+            max_season = 0
+            for link in season_links:
+                href = link["href"]
+                # Match pattern like .../staffel-1, .../staffel-1/ or .../staffel-1/episode-1
+                match = re.search(r"staffel-(\d+)", href)
+                if match:
+                    season_num = int(match.group(1))
+                    if season_num > max_season:
+                        max_season = season_num
+            number_of_seasons = max_season
 
         episode_counts = {}
         for season in range(1, number_of_seasons + 1):
-            season_url = f"{base_url}staffel-{season}"
+            # Construct season URL based on the final URL from the request (handling redirects)
+            season_url = f"{final_url}/staffel-{season}"
             try:
                 season_response = _make_request(season_url)
                 season_soup = BeautifulSoup(season_response.content, "html.parser")
@@ -589,7 +621,13 @@ def _process_base_url(
         return unique_links
 
     try:
-        series_slug_index = parts.index("stream") + 1
+        if "stream" in parts:
+            series_slug_index = parts.index("stream") + 1
+        elif "serie" in parts:
+            series_slug_index = parts.index("serie") + 1
+        else:
+            raise ValueError("Neither 'stream' nor 'serie' found in URL")
+
         series_slug = parts[series_slug_index]
 
         if series_slug in slug_cache:

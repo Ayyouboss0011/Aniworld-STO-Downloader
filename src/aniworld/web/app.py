@@ -512,28 +512,21 @@ class WebApp:
                 # Create wrapper function for search with dual-site support
                 def search_anime_wrapper(keyword, site="both"):
                     """Wrapper function for anime search with multi-site support"""
-                    from ..search import fetch_anime_list
+                    from ..search import search_anime
                     from .. import config
-                    from urllib.parse import quote
 
                     if site == "both":
-                        # Search both sites using existing fetch_anime_list function
-                        aniworld_url = f"{config.ANIWORLD_TO}/ajax/seriesSearch?keyword={quote(keyword)}"
-                        sto_url = (
-                            f"{config.S_TO}/ajax/seriesSearch?keyword={quote(keyword)}"
-                        )
-
-                        # Fetch from both sites
+                        # Search both sites using the new search_anime function
                         aniworld_results = []
                         sto_results = []
 
                         try:
-                            aniworld_results = fetch_anime_list(aniworld_url)
+                            aniworld_results = search_anime(keyword=keyword, only_return=True, site="aniworld.to")
                         except Exception as e:
                             logging.warning(f"Failed to fetch from aniworld: {e}")
 
                         try:
-                            sto_results = fetch_anime_list(sto_url)
+                            sto_results = search_anime(keyword=keyword, only_return=True, site="s.to")
                         except Exception as e:
                             logging.warning(f"Failed to fetch from s.to: {e}")
 
@@ -557,7 +550,11 @@ class WebApp:
                             if slug and slug not in seen_slugs:
                                 anime["site"] = "s.to"
                                 anime["base_url"] = config.S_TO
-                                anime["stream_path"] = "serie/stream"
+                                # s.to search results might already include "serie/" path
+                                if slug.startswith("serie/"):
+                                    anime["stream_path"] = ""
+                                else:
+                                    anime["stream_path"] = "serie/stream"
                                 all_results.append(anime)
                                 seen_slugs.add(slug)
 
@@ -565,11 +562,8 @@ class WebApp:
 
                     elif site == "s.to":
                         # Single site search - s.to
-                        search_url = (
-                            f"{config.S_TO}/ajax/seriesSearch?keyword={quote(keyword)}"
-                        )
                         try:
-                            results = fetch_anime_list(search_url)
+                            results = search_anime(keyword=keyword, only_return=True, site="s.to")
                             for anime in results:
                                 anime["site"] = "s.to"
                                 anime["base_url"] = config.S_TO
@@ -581,10 +575,8 @@ class WebApp:
 
                     else:
                         # Single site search - aniworld.to (default)
-                        from ..search import search_anime
-
                         try:
-                            results = search_anime(keyword=keyword, only_return=True)
+                            results = search_anime(keyword=keyword, only_return=True, site="aniworld.to")
                             for anime in results:
                                 anime["site"] = "aniworld.to"
                                 anime["base_url"] = config.ANIWORLD_TO
@@ -608,7 +600,10 @@ class WebApp:
 
                     if link and not link.startswith("http"):
                         # If it's just a slug, construct the full URL using the anime's specific site info
-                        full_url = f"{anime_base_url}/{anime_stream_path}/{link}"
+                        if anime_stream_path:
+                            full_url = f"{anime_base_url}/{anime_stream_path}/{link}"
+                        else:
+                            full_url = f"{anime_base_url}/{link}"
                     else:
                         full_url = link
 
@@ -745,6 +740,36 @@ class WebApp:
                     {"success": False, "error": f"Failed to start download: {str(err)}"}
                 ), 500
 
+        @self.app.route("/api/download/cancel", methods=["POST"])
+        @self._require_api_auth
+        def api_cancel_download():
+            """Cancel download endpoint."""
+            try:
+                from flask import request
+
+                data = request.get_json()
+                queue_id = data.get("queue_id")
+
+                if not queue_id:
+                    return jsonify(
+                        {"success": False, "error": "Queue ID required"}
+                    ), 400
+
+                if self.download_manager.cancel_download(int(queue_id)):
+                    return jsonify(
+                        {"success": True, "message": f"Download {queue_id} cancelled"}
+                    )
+                else:
+                    return jsonify(
+                        {"success": False, "error": f"Failed to cancel download {queue_id}"}
+                    ), 400
+
+            except Exception as err:
+                logging.error(f"Download error: {err}")
+                return jsonify(
+                    {"success": False, "error": f"Failed to start download: {str(err)}"}
+                ), 500
+
         @self.app.route("/api/download-path")
         @self._require_api_auth
         def api_download_path():
@@ -799,6 +824,10 @@ class WebApp:
                     elif "/serie/stream/" in series_url:
                         slug = series_url.split("/serie/stream/")[-1].rstrip("/")
                         stream_path = "serie/stream"
+                        base_url = config.S_TO
+                    elif config.S_TO in series_url and "/serie/" in series_url:
+                        slug = series_url.split("/serie/")[-1].rstrip("/")
+                        stream_path = "serie"
                         base_url = config.S_TO
                     else:
                         raise ValueError("Invalid series URL format")

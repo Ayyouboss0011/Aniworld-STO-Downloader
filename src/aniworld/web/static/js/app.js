@@ -27,6 +27,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const closeDownloadModal = document.getElementById('close-download-modal');
     const cancelDownload = document.getElementById('cancel-download');
     const confirmDownload = document.getElementById('confirm-download');
+
+    // Stop modal elements
+    const stopModal = document.getElementById('stop-modal');
+    const closeStopModal = document.getElementById('close-stop-modal');
+    const cancelStop = document.getElementById('cancel-stop');
+    const confirmStop = document.getElementById('confirm-stop');
     const selectAllBtn = document.getElementById('select-all');
     const deselectAllBtn = document.getElementById('deselect-all');
     const episodeTreeLoading = document.getElementById('episode-tree-loading');
@@ -44,6 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Current download data
     let currentDownloadData = null;
+    let currentQueueIdToCancel = null;
     let availableEpisodes = {};
     let availableMovies = [];
     let selectedEpisodes = new Set();
@@ -85,6 +92,17 @@ document.addEventListener('DOMContentLoaded', function() {
     if (confirmDownload) {
         confirmDownload.addEventListener('click', startDownload);
     }
+
+    // Stop modal functionality
+    if (closeStopModal) {
+        closeStopModal.addEventListener('click', hideStopModal);
+    }
+    if (cancelStop) {
+        cancelStop.addEventListener('click', hideStopModal);
+    }
+    if (confirmStop) {
+        confirmStop.addEventListener('click', executeCancelDownload);
+    }
     if (selectAllBtn) {
         selectAllBtn.addEventListener('click', selectAllEpisodes);
     }
@@ -116,6 +134,14 @@ document.addEventListener('DOMContentLoaded', function() {
         downloadModal.addEventListener('click', function(e) {
             if (e.target === downloadModal) {
                 hideDownloadModal();
+            }
+        });
+    }
+
+    if (stopModal) {
+        stopModal.addEventListener('click', function(e) {
+            if (e.target === stopModal) {
+                hideStopModal();
             }
         });
     }
@@ -413,6 +439,16 @@ document.addEventListener('DOMContentLoaded', function() {
         selectedEpisodes.clear();
         availableEpisodes = {};
         availableMovies = [];
+    }
+
+    function showStopModal(queueId) {
+        currentQueueIdToCancel = queueId;
+        stopModal.style.display = 'flex';
+    }
+
+    function hideStopModal() {
+        stopModal.style.display = 'none';
+        currentQueueIdToCancel = null;
     }
 
     function renderEpisodeTree() {
@@ -912,7 +948,10 @@ document.addEventListener('DOMContentLoaded', function() {
             queueItem.innerHTML = `
                 <div class="queue-item-header">
                     <div class="queue-item-title">${escapeHtml(item.anime_title)}</div>
-                    <div class="queue-item-status ${item.status}">${item.status}</div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="queue-item-status ${item.status}">${item.status}</div>
+                        ${showProgressBar ? `<button class="stop-download-btn" data-id="${item.id}" title="Stop Download"><i class="fas fa-stop"></i></button>` : ''}
+                    </div>
                 </div>
                 ${showProgressBar ? `
                 <div class="queue-item-progress">
@@ -939,7 +978,49 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
 
+            // Add event listener to the stop button if it exists
+            const stopBtn = queueItem.querySelector('.stop-download-btn');
+            if (stopBtn) {
+                stopBtn.addEventListener('click', () => {
+                    handleCancelDownload(item.id);
+                });
+            }
+
             container.appendChild(queueItem);
+        });
+    }
+
+    function handleCancelDownload(queueId) {
+        showStopModal(queueId);
+    }
+
+    function executeCancelDownload() {
+        if (!currentQueueIdToCancel) return;
+
+        const queueId = currentQueueIdToCancel;
+        hideStopModal();
+
+        fetch('/api/download/cancel', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                queue_id: queueId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(`Download ${queueId} cancelled`, 'success');
+                updateQueueDisplay();
+            } else {
+                showNotification(data.error || 'Failed to cancel download', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Cancel download error:', error);
+            showNotification('Failed to cancel download', 'error');
         });
     }
 

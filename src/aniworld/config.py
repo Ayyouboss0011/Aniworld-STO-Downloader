@@ -11,6 +11,9 @@ from urllib3.exceptions import InsecureRequestWarning
 import urllib3
 import requests
 from fake_useragent import UserAgent
+import dns.resolver
+import socket
+from urllib3.util import connection
 
 
 #########################################################################################
@@ -18,13 +21,57 @@ from fake_useragent import UserAgent
 #########################################################################################
 
 ANIWORLD_TO = "https://aniworld.to"
-S_TO = "http://186.2.175.5"
+S_TO = "https://s.to"
 
 # Supported streaming sites with their URL patterns
 SUPPORTED_SITES = {
     "aniworld.to": {"base_url": ANIWORLD_TO, "stream_path": "anime/stream"},
     "s.to": {"base_url": S_TO, "stream_path": "serie/stream"},
 }
+
+#########################################################################################
+# DNS Configuration (Cloudflare 1.1.1.1)
+#########################################################################################
+
+_dns_resolver = dns.resolver.Resolver()
+_dns_resolver.nameservers = ["1.1.1.1", "1.0.0.1"]
+_dns_cache = {}
+
+def resolve_dns(host):
+    """Resolve hostname using Cloudflare DNS with caching."""
+    if host in _dns_cache:
+        return _dns_cache[host]
+    
+    # Don't resolve IP addresses
+    if all(c.isdigit() or c == "." for c in host):
+        return host
+
+    try:
+        answers = _dns_resolver.resolve(host, "A")
+        if answers:
+            ip = answers[0].to_text()
+            _dns_cache[host] = ip
+            return ip
+    except Exception as e:
+        logging.debug(f"DNS resolution failed for {host} via Cloudflare: {e}")
+        try:
+            # Fallback to system DNS
+            ip = socket.gethostbyname(host)
+            _dns_cache[host] = ip
+            return ip
+        except Exception:
+            pass
+    return host
+
+# Monkeypatch urllib3 to use our custom DNS resolver
+_orig_create_connection = connection.create_connection
+
+def patched_create_connection(address, *args, **kwargs):
+    host, port = address
+    hostname = resolve_dns(host)
+    return _orig_create_connection((hostname, port), *args, **kwargs)
+
+connection.create_connection = patched_create_connection
 
 # Language code mappings for consistent handling
 LANGUAGE_CODES_ANIWORLD = {
@@ -179,6 +226,11 @@ def get_random_user_agent():
 
 # Backward compatibility - keep RANDOM_USER_AGENT as a constant
 RANDOM_USER_AGENT = get_random_user_agent()
+
+DEFAULT_HEADERS = {
+    "User-Agent": RANDOM_USER_AGENT,
+    "X-Requested-With": "XMLHttpRequest",
+}
 
 LULUVDO_USER_AGENT = (
     "Mozilla/5.0 (Android 15; Mobile; rv:132.0) Gecko/132.0 Firefox/132.0"

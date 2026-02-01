@@ -159,6 +159,25 @@
         </main>
     </div>
 
+    <!-- Stop Confirmation Modal -->
+    <div id="stop-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>Stop Download</h3>
+                <button id="close-stop-modal" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to stop this download? Any partial progress will be lost.</p>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-actions" style="width: 100%; display: flex; justify-content: flex-end; gap: 10px;">
+                    <button id="cancel-stop" class="secondary-btn">No, Continue</button>
+                    <button id="confirm-stop" class="primary-btn" style="background-color: #e53e3e;">Yes, Stop</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Download Confirmation Modal -->
     <div id="download-modal" class="modal-overlay" style="display: none;">
         <div class="modal-content">

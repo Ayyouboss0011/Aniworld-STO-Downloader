@@ -2414,3 +2414,28 @@ body[data-theme="dark"] .episode-progress-text {
         padding: 0.4rem 0.3rem;
     }
 }
+
+/* Stop Download Button */
+.stop-download-btn {
+    background: #e53e3e;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.7rem;
+}
+
+.stop-download-btn:hover {
+    background: #c53030;
+    transform: scale(1.1);
+}
+
+.stop-download-btn:active {
+    transform: scale(0.9);
+}

@@ -18,6 +18,7 @@ from .config import (
     SITE_LANGUAGE_NAMES,
     SUPPORTED_PROVIDERS,
     S_TO,
+    DEFAULT_HEADERS,
 )
 from .parser import arguments
 from .common import get_season_episode_count, get_movie_episode_count
@@ -174,10 +175,11 @@ class Anime:
         """
         if self._html_cache is None:
             try:
+                headers = DEFAULT_HEADERS.copy()
                 self._html_cache = requests.get(
                     f"{self.base_url}/{self.stream_path}/{self.slug}",
                     timeout=DEFAULT_REQUEST_TIMEOUT,
-                    headers={"User-Agent": RANDOM_USER_AGENT},
+                    headers=headers,
                 )
                 self._html_cache.raise_for_status()
             except requests.RequestException as err:
@@ -635,10 +637,11 @@ class Episode:
                 raise ValueError("Cannot fetch HTML without episode link")
 
             try:
+                headers = DEFAULT_HEADERS.copy()
                 self._html_cache = requests.get(
                     self.link,
                     timeout=DEFAULT_REQUEST_TIMEOUT,
-                    headers={"User-Agent": RANDOM_USER_AGENT},
+                    headers=headers,
                 )
                 self._html_cache.raise_for_status()
             except requests.RequestException as err:
@@ -753,6 +756,19 @@ class Episode:
         """
         try:
             episode_soup = BeautifulSoup(self.html.content, "html.parser")
+
+            # Check for new s.to structure
+            if self.site == "s.to":
+                language_codes = set()
+                provider_buttons = episode_soup.find_all("button", class_="link-box")
+                if provider_buttons:
+                    for button in provider_buttons:
+                        lang_key = button.get("data-language-id")
+                        if lang_key and lang_key.isdigit():
+                            language_codes.add(int(lang_key))
+                    if language_codes:
+                        return sorted(list(language_codes))
+
             change_language_box = episode_soup.find("div", class_="changeLanguageBox")
 
             if not change_language_box:
@@ -798,13 +814,46 @@ class Episode:
             soup = BeautifulSoup(self.html.content, "html.parser")
             providers = {}
 
+            # Handle new s.to structure
+            if self.site == "s.to":
+                provider_buttons = soup.find_all("button", class_="link-box")
+                if provider_buttons:
+                    for button in provider_buttons:
+                        redirect_path = button.get("data-play-url")
+                        lang_key_str = button.get("data-language-id")
+                        
+                        provider_name = None
+                        provider_name_span = button.find("span", class_="ms-1")
+                        if provider_name_span:
+                            provider_name = provider_name_span.get_text(strip=True)
+                        else:
+                            # Fallback: Try to clean text content
+                            full_text = button.get_text(strip=True)
+                            provider_name = full_text
+
+                        if redirect_path and lang_key_str and lang_key_str.isdigit() and provider_name:
+                            lang_key = int(lang_key_str)
+                            redirect_url = f"{self.base_url}{redirect_path}"
+                            
+                            if provider_name not in providers:
+                                providers[provider_name] = {}
+                            providers[provider_name][lang_key] = redirect_url
+                    
+                    if providers:
+                        logging.debug(
+                            'Available providers for "%s" (s.to):\\n%s',
+                            self.anime_title,
+                            json.dumps(providers, indent=2),
+                        )
+                        return providers
+
             episode_links = soup.find_all(
                 "li", class_=lambda x: x and x.startswith("episodeLink")
             )
 
             if not episode_links:
                 raise ValueError(
-                    f"No streams available for episode: {self.link}\n"
+                    f"No streams available for episode: {self.link}\\n"
                     "Try again later or check in the community chat."
                 )
 
@@ -822,7 +871,7 @@ class Episode:
                 raise ValueError(f"Could not extract providers from {self.link}")
 
             logging.debug(
-                'Available providers for "%s":\n%s',
+                'Available providers for "%s":\\n%s',
                 self.anime_title,
                 json.dumps(providers, indent=2),
             )
@@ -1434,7 +1483,12 @@ def get_anime_title_from_html(
         soup = BeautifulSoup(html.content, "html.parser")
 
         # Site-specific title extraction
-        if site == S_TO:
+        if site == "s.to":
+            # Check for new s.to layout
+            h1_title = soup.find("h1", class_="h2")
+            if h1_title:
+                return h1_title.get_text(strip=True)
+
             # S_TO uses: <div class="series-title"><h1><span>Title</span></h1>...</div>
             title_div = soup.find("div", class_="series-title")
             if title_div:
