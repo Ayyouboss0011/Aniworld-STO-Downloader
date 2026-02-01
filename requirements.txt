@@ -7,4 +7,4 @@ fake_useragent
 packaging
 jsbeautifier
 flask
-dns
+dnspython

@@ -32,6 +32,7 @@ dependencies = [
     'packaging',
     'jsbeautifier',
     'flask',
+    'dnspython',
     'py-cpuinfo; platform_system == "Windows"',
     'windows-curses; platform_system == "Windows"',
     'winfcntl; platform_system == "Windows"'
