@@ -29,11 +29,12 @@ RUN useradd --create-home --shell /bin/bash aniworld
 WORKDIR /app
 
 # Copy project files
-COPY pyproject.toml MANIFEST.in ./
+COPY pyproject.toml MANIFEST.in requirements.txt ./
 COPY src/ ./src/
 
 # Install Python dependencies
 RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
     pip install -e .
 
 # Create necessary directories and set permissions
