@@ -50,9 +50,6 @@
                 <a href="{{ url_for('settings') }}" class="nav-btn" title="Settings" style="margin-right: 0.5rem; width: 40px; height: 40px; border-radius: 50%; padding: 0;">
                     <i class="fas fa-cog"></i>
                 </a>
-                <button id="theme-toggle" class="nav-btn theme-toggle" title="Toggle light/dark mode">
-                    <i id="theme-icon" class="fas fa-moon"></i>
-                </button>
                 {% endif %}
                 {% if auth_enabled and user %}
                 <div class="user-dropdown">
@@ -181,7 +178,7 @@
                 <div class="trackers-section" id="trackers-section" style="margin-top: 30px; display: none;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                         <h4 style="margin: 0;"><i class="fas fa-eye"></i> Active Trackers</h4>
-                        <button id="scan-trackers-btn" class="btn-secondary" title="Check for new episodes now">
+                        <button id="scan-trackers-btn" class="tracker-btn" title="Check for new episodes now">
                             <i class="fas fa-sync-alt"></i> Check Now
                         </button>
                     </div>

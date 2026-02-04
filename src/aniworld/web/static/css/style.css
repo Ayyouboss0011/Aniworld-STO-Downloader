@@ -2219,6 +2219,38 @@ body[data-theme="dark"] .episode-progress-text {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+.tracker-btn {
+    background: linear-gradient(135deg, #9f7aea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: 0 2px 8px rgba(118, 75, 162, 0.3);
+}
+
+.tracker-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(118, 75, 162, 0.5);
+    background: linear-gradient(135deg, #b794f4 0%, #805ad5 100%);
+}
+
+.tracker-btn:active {
+    transform: translateY(0);
+}
+
+.tracker-btn:disabled {
+    opacity: 0.7;
+    cursor: wait;
+    transform: none;
+}
+
 /* Responsive Design */
 /* Large screens - more cards per row */
 @media (min-width: 1400px) {
