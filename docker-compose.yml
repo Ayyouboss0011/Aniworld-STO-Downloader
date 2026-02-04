@@ -1,6 +1,7 @@
 services:
   aniworld:
     container_name: aniworld-downloader
+    build: .
     image: aniworld-new
     command: ["aniworld", "--web-ui", "--web-port", "3005", "--no-browser", "--web-expose", "--output-dir", "/app/downloads"]
     ports:

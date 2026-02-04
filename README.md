@@ -13,7 +13,9 @@ lankabeltv is a powerful tool for downloading and streaming anime movies and ser
 **Using Docker (Recommended):**
 
 ```bash
-docker run -d -p 3005:3005 -v $(pwd)/downloads:/app/downloads ghcr.io/phoenixthrush/aniworld-downloader aniworld --web-ui --web-port 3005 --no-browser --web-expose --output-dir /app/downloads
+git clone https://github.com/phoenixthrush/lankabeltv.git
+cd lankabeltv
+docker-compose up -d --build
 ```
 
 Then open http://localhost:3005
@@ -110,13 +112,14 @@ lankabeltv is best deployed using Docker.
 
 #### Using Docker Compose
 
-1.  Create a `docker-compose.yml`:
+1.  Create a `docker-compose.yml` (or use the one in the repository):
 
     ```yaml
     services:
       aniworld:
         container_name: aniworld-downloader
-        image: ghcr.io/phoenixthrush/aniworld-downloader
+        build: .
+        image: aniworld-new
         command: ["aniworld", "--web-ui", "--web-port", "3005", "--no-browser", "--web-expose", "--output-dir", "/app/downloads"]
         ports:
           - "3005:3005"
@@ -126,20 +129,26 @@ lankabeltv is best deployed using Docker.
         restart: unless-stopped
     ```
 
-2.  Run the container:
+2.  Build and run the container:
     ```bash
-    docker-compose up -d
+    docker-compose up -d --build
     ```
 
 #### Using Docker Directly
 
+First, build the image:
+```bash
+docker build -t aniworld-new .
+```
+
+Then run the container:
 ```bash
 docker run -d \
   --name aniworld-downloader \
   -p 3005:3005 \
   -v $(pwd)/downloads:/app/downloads \
   -v $(pwd)/data:/app/data \
-  ghcr.io/phoenixthrush/aniworld-downloader \
+  aniworld-new \
   aniworld --web-ui --web-port 3005 --no-browser --web-expose --output-dir /app/downloads
 ```
 
