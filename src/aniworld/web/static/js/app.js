@@ -48,6 +48,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectedEpisodeCount = document.getElementById('selected-episode-count');
     const providerSelect = document.getElementById('provider-select');
     const languageSelect = document.getElementById('language-select');
+    const checkAvailabilityBtn = document.getElementById('check-availability-btn');
 
     // Tracker UI elements
     const trackSeriesCheckbox = document.getElementById('track-series-checkbox');
@@ -142,6 +143,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (confirmDownload) {
         confirmDownload.addEventListener('click', startDownload);
     }
+    if (checkAvailabilityBtn) {
+        checkAvailabilityBtn.addEventListener('click', checkAvailability);
+    }
 
     // Stop modal functionality
     if (closeStopModal) {
@@ -215,36 +219,56 @@ document.addEventListener('DOMContentLoaded', function() {
         populateProviderDropdown('aniworld.to');
     }
 
-    function populateProviderDropdown(site) {
+    function populateProviderDropdown(site, availableList = null) {
         if (!providerSelect) return;
 
         let siteProviders = [];
-        if (site === 's.to') {
-            siteProviders = ['VOE'];
+        if (availableList) {
+            siteProviders = availableList;
         } else {
-            siteProviders = ['VOE', 'Filemoon', 'Vidmoly'];
+            // Default fallback logic
+            if (site === 's.to') {
+                siteProviders = ['VOE'];
+            } else {
+                siteProviders = ['VOE', 'Filemoon', 'Vidmoly'];
+            }
         }
 
+        const currentValue = providerSelect.value;
         providerSelect.innerHTML = '';
+        
         siteProviders.forEach(provider => {
             const option = document.createElement('option');
             option.value = provider;
             option.textContent = provider;
             providerSelect.appendChild(option);
         });
-        providerSelect.value = 'VOE';
+
+        // Try to keep selection or select first
+        if (availableList && availableList.includes(currentValue)) {
+            providerSelect.value = currentValue;
+        } else if (siteProviders.length > 0) {
+            providerSelect.value = siteProviders[0];
+        }
     }
 
-    function populateLanguageDropdown(site) {
+    function populateLanguageDropdown(site, availableList = null) {
         if (!languageSelect) return;
 
-        languageSelect.innerHTML = '';
         let availableLanguages = [];
-        if (site === 's.to') {
-            availableLanguages = ['German Dub', 'English Dub'];
+        if (availableList) {
+            availableLanguages = availableList;
         } else {
-            availableLanguages = ['German Dub', 'English Sub', 'German Sub'];
+            // Default fallback logic
+            if (site === 's.to') {
+                availableLanguages = ['German Dub', 'English Dub'];
+            } else {
+                availableLanguages = ['German Dub', 'English Sub', 'German Sub'];
+            }
         }
+
+        const currentValue = languageSelect.value;
+        languageSelect.innerHTML = '';
 
         availableLanguages.forEach(language => {
             const option = document.createElement('option');
@@ -253,13 +277,83 @@ document.addEventListener('DOMContentLoaded', function() {
             languageSelect.appendChild(option);
         });
 
-        setTimeout(() => {
-            if (site === 's.to') {
-                languageSelect.value = 'German Dub';
-            } else {
+        // Try to keep selection or select preferred
+        if (availableList) {
+            if (availableList.includes(currentValue)) {
+                languageSelect.value = currentValue;
+            } else if (availableList.includes('German Sub')) {
                 languageSelect.value = 'German Sub';
+            } else if (availableList.includes('German Dub')) {
+                languageSelect.value = 'German Dub';
+            } else if (availableLanguages.length > 0) {
+                languageSelect.value = availableLanguages[0];
             }
-        }, 0);
+        } else {
+            setTimeout(() => {
+                if (site === 's.to') {
+                    languageSelect.value = 'German Dub';
+                } else {
+                    languageSelect.value = 'German Sub';
+                }
+            }, 0);
+        }
+    }
+
+    function checkAvailability() {
+        if (!currentDownloadData) return;
+
+        // Find an episode URL to check
+        let episodeUrl = null;
+        
+        // Use first selected episode if any
+        if (selectedEpisodes.size > 0) {
+            const firstKey = selectedEpisodes.values().next().value;
+            const [s, e] = firstKey.split('-').map(Number);
+            const epData = availableEpisodes[s]?.find(item => item.season === s && item.episode === e);
+            if (epData) episodeUrl = epData.url;
+        }
+        
+        // If no selection, use first available episode
+        if (!episodeUrl) {
+            const seasons = Object.keys(availableEpisodes).sort((a, b) => Number(a) - Number(b));
+            if (seasons.length > 0 && availableEpisodes[seasons[0]].length > 0) {
+                episodeUrl = availableEpisodes[seasons[0]][0].url;
+            }
+        }
+
+        if (!episodeUrl) {
+            showNotification('No episodes available to check', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('check-availability-btn');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+
+        fetch('/api/episode/providers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ episode_url: episodeUrl })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                populateProviderDropdown(currentDownloadData.site, data.providers);
+                populateLanguageDropdown(currentDownloadData.site, data.languages);
+                showNotification(`Found ${data.providers.length} providers and ${data.languages.length} languages`, 'success');
+            } else {
+                showNotification(data.error || 'Failed to check availability', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Check availability error:', error);
+            showNotification('Failed to check availability', 'error');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        });
     }
 
     function performSearch() {

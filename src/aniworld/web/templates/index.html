@@ -235,9 +235,14 @@
                     </div>
                     <div class="setting-group">
                         <label for="provider-select"><strong>Provider:</strong></label>
-                        <select id="provider-select" class="provider-dropdown">
-                            <option value="">Loading providers...</option>
-                        </select>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <select id="provider-select" class="provider-dropdown" style="flex-grow: 1;">
+                                <option value="">Loading providers...</option>
+                            </select>
+                            <button id="check-availability-btn" class="secondary-btn" title="Check actual availability for first selected episode" style="padding: 5px 10px; font-size: 0.9em; white-space: nowrap;">
+                                <i class="fas fa-sync-alt"></i> Check Availability
+                            </button>
+                        </div>
                     </div>
                 </div>
 

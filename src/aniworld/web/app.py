@@ -12,6 +12,7 @@ from functools import wraps
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 
 from .. import config
+from ..models import Episode
 from .database import UserDatabase
 from .download_manager import get_download_manager
 
@@ -662,6 +663,48 @@ class WebApp:
                 logging.error(f"Search error: {err}")
                 return jsonify(
                     {"success": False, "error": f"Search failed: {str(err)}"}
+                ), 500
+
+        @self.app.route("/api/episode/providers", methods=["POST"])
+        @self._require_api_auth
+        def api_episode_providers():
+            """Get available providers for an episode endpoint."""
+            try:
+                from flask import request
+
+                data = request.get_json()
+                if not data or "episode_url" not in data:
+                    return jsonify(
+                        {"success": False, "error": "Episode URL is required"}
+                    ), 400
+
+                episode_url = data["episode_url"]
+
+                try:
+                    # Initialize Episode to fetch providers
+                    # This will fetch the HTML and extract providers/languages
+                    episode = Episode(link=episode_url)
+                    episode.auto_fill_details()
+
+                    # Return available providers and languages
+                    return jsonify({
+                        "success": True,
+                        "providers": episode.provider_name,
+                        "languages": episode.language_name,
+                        "provider_data": episode.provider,  # Full data if needed
+                        "language_codes": episode.language
+                    })
+
+                except Exception as e:
+                    logging.error(f"Failed to fetch episode providers: {e}")
+                    return jsonify(
+                        {"success": False, "error": f"Failed to fetch providers: {str(e)}"}
+                    ), 500
+
+            except Exception as err:
+                logging.error(f"Provider fetch error: {err}")
+                return jsonify(
+                    {"success": False, "error": f"Failed to fetch providers: {str(err)}"}
                 ), 500
 
         @self.app.route("/api/download", methods=["POST"])
