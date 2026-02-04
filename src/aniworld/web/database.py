@@ -1,5 +1,5 @@
 """
-Database models and utilities for AniWorld Downloader web authentication
+Database models and utilities for lankabeltv web authentication
 """
 
 import hashlib
@@ -66,6 +66,22 @@ class UserDatabase:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     expires_at TIMESTAMP NOT NULL,
                     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+                )
+            """)
+
+            # Create trackers table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS trackers (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER,
+                    anime_title TEXT NOT NULL,
+                    series_url TEXT NOT NULL,
+                    language TEXT NOT NULL,
+                    provider TEXT NOT NULL,
+                    last_season INTEGER DEFAULT 0,
+                    last_episode INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
                 )
             """)
 
@@ -474,6 +490,93 @@ class UserDatabase:
 
         except Exception:
             pass
+
+    def add_tracker(
+        self,
+        user_id: Optional[int],
+        anime_title: str,
+        series_url: str,
+        language: str,
+        provider: str,
+        last_season: int = 0,
+        last_episode: int = 0,
+    ) -> Optional[int]:
+        """Add a series to trackers."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    INSERT INTO trackers (user_id, anime_title, series_url, language, provider, last_season, last_episode)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        user_id,
+                        anime_title,
+                        series_url,
+                        language,
+                        provider,
+                        last_season,
+                        last_episode,
+                    ),
+                )
+                conn.commit()
+                return cursor.lastrowid
+        except Exception:
+            return None
+
+    def get_trackers(self, user_id: Optional[int] = None) -> List[Dict]:
+        """Get all trackers, optionally filtered by user_id."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                if user_id is not None:
+                    cursor.execute(
+                        "SELECT * FROM trackers WHERE user_id = ?", (user_id,)
+                    )
+                else:
+                    cursor.execute("SELECT * FROM trackers")
+
+                columns = [column[0] for column in cursor.description]
+                results = []
+                for row in cursor.fetchall():
+                    results.append(dict(zip(columns, row)))
+                return results
+        except Exception:
+            return []
+
+    def update_tracker_last_episode(
+        self, tracker_id: int, season: int, episode: int
+    ) -> bool:
+        """Update the last seen episode for a tracker."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "UPDATE trackers SET last_season = ?, last_episode = ? WHERE id = ?",
+                    (season, episode, tracker_id),
+                )
+                conn.commit()
+                return cursor.rowcount > 0
+        except Exception:
+            return False
+
+    def delete_tracker(self, tracker_id: int, user_id: Optional[int] = None) -> bool:
+        """Delete a tracker."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                if user_id is not None:
+                    cursor.execute(
+                        "DELETE FROM trackers WHERE id = ? AND user_id = ?",
+                        (tracker_id, user_id),
+                    )
+                else:
+                    cursor.execute("DELETE FROM trackers WHERE id = ?", (tracker_id,))
+                conn.commit()
+                return cursor.rowcount > 0
+        except Exception:
+            return False
 
     # Download Queue Management Methods - Removed
     # Download status is now handled in memory by DownloadQueueManager

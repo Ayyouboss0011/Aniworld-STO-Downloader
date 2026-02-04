@@ -1,3 +1,3 @@
 """
-AniWorld Downloader Web Interface
+lankabeltv Web Interface
 """

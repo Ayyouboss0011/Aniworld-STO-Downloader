@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Suggest an idea or improvement for AniWorld-Downloader
+about: Suggest an idea or improvement for lankabeltv
 title: ''
 labels: enhancement
 assignees: ''

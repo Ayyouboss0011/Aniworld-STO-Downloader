@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AniWorld Downloader - Web Interface</title>
+    <title>lankabeltv - Web Interface</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
@@ -33,13 +33,19 @@
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-brand">
-                <h1 id="nav-title" style="cursor: pointer;">AniWorld Downloader</h1>
-                <span class="version" id="version-display">Loading...</span>
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="lankabeltv Logo" id="nav-logo" style="height: 40px; cursor: pointer;">
+                <h1 id="nav-title" style="cursor: pointer; display: none;">lankabeltv</h1>
+            </div>
+            <div class="nav-tabs">
+                <button class="nav-tab active" id="tab-home" title="Home & Search">
+                    <i class="fas fa-search"></i> <span>Search</span>
+                </button>
+                <button class="nav-tab" id="tab-downloads" title="Downloads">
+                    <i class="fas fa-download"></i> <span>Downloads</span>
+                    <span id="download-badge" class="badge" style="display: none;"></span>
+                </button>
             </div>
             <div class="nav-actions">
-                <a href="https://github.com/phoenixthrush/AniWorld-Downloader" target="_blank" class="nav-btn github-btn" title="View on GitHub">
-                    <i class="fab fa-github"></i>
-                </a>
                 {% if not (auth_enabled and user) %}
                 <button id="theme-toggle" class="nav-btn theme-toggle" title="Toggle light/dark mode">
                     <i id="theme-icon" class="fas fa-moon"></i>
@@ -70,7 +76,7 @@
     </nav>
 
     <div class="container">
-        <main>
+        <main id="main-view">
             <div class="search-section">
                 <h2>Search Anime or Series</h2>
                 <div class="site-selection">
@@ -93,28 +99,8 @@
                 </div>
             </div>
 
-            <!-- Download Queue Section -->
-            <div class="queue-section" id="queue-section" style="display: none;">
-                <h3>Download Queue</h3>
 
-                <!-- Active Downloads -->
-                <div class="active-downloads" id="active-downloads" style="display: none;">
-                    <h4><i class="fas fa-download"></i> Active Downloads</h4>
-                    <div class="queue-list" id="active-queue-list">
-                        <!-- Active downloads will be populated here -->
-                    </div>
-                </div>
-
-                <!-- Completed Downloads -->
-                <div class="completed-downloads" id="completed-downloads" style="display: none;">
-                    <h4><i class="fas fa-check-circle"></i> Last Completed Download</h4>
-                    <div class="queue-list" id="completed-queue-list">
-                        <!-- Completed downloads will be populated here -->
-                    </div>
-                </div>
-            </div>
-
-            <div class="results-section" id="results-section" style="display: none;">
+            <div class="results-section" id="results-section">
                 <h3>Search Results</h3>
                 <div id="results-container" class="results-container">
                     <!-- Search results will be populated here -->
@@ -155,6 +141,51 @@
                 </div>
                 <h3>Search for Anime or Series</h3>
                 <p>Enter an anime or series name in the search box above to get started.</p>
+            </div>
+        </main>
+
+        <!-- Download View (Hidden by default) -->
+        <main id="downloads-view" style="display: none;">
+            <div class="queue-section" id="queue-section">
+                <h2>Download Manager</h2>
+
+                <!-- Active Downloads -->
+                <div class="active-downloads" id="active-downloads">
+                    <h4><i class="fas fa-download"></i> Active Downloads</h4>
+                    <div class="queue-list" id="active-queue-list">
+                        <!-- Active downloads will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Empty State for Downloads -->
+                <div id="downloads-empty-state" class="empty-state">
+                    <div class="empty-icon">
+                        <i class="fas fa-download"></i>
+                    </div>
+                    <h3>No active downloads</h3>
+                    <p>Your download queue is currently empty.</p>
+                </div>
+
+                <!-- Completed Downloads -->
+                <div class="completed-downloads" id="completed-downloads" style="display: none;">
+                    <h4><i class="fas fa-check-circle"></i> Recently Completed</h4>
+                    <div class="queue-list" id="completed-queue-list">
+                        <!-- Completed downloads will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Active Trackers -->
+                <div class="trackers-section" id="trackers-section" style="margin-top: 30px; display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h4 style="margin: 0;"><i class="fas fa-eye"></i> Active Trackers</h4>
+                        <button id="scan-trackers-btn" class="btn-secondary" title="Check for new episodes now">
+                            <i class="fas fa-sync-alt"></i> Check Now
+                        </button>
+                    </div>
+                    <div class="queue-list" id="trackers-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;">
+                        <!-- Trackers will be populated here -->
+                    </div>
+                </div>
             </div>
         </main>
     </div>
@@ -225,6 +256,14 @@
                     <div class="episode-tree" id="episode-tree" style="display: none;">
                         <!-- Episodes will be populated here dynamically -->
                     </div>
+                </div>
+
+                <!-- Tracker Option -->
+                <div class="tracker-option" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <label class="checkbox-label" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" id="track-series-checkbox" style="width: 18px; height: 18px;">
+                        <span><strong>Track for new episodes</strong> (Check every hour and download automatically)</span>
+                    </label>
                 </div>
             </div>
             <div class="modal-footer">

@@ -1,6 +1,6 @@
 ---
 name: Bug Report
-about: Report a bug to help us improve AniWorld-Downloader
+about: Report a bug to help us improve lankabeltv
 title: ''
 labels: bug
 assignees: ''
@@ -32,7 +32,7 @@ assignees: ''
 **Python Version:**
 <!-- Run `python --version` -->
 
-**AniWorld-Downloader Version:**
+**lankabeltv Version:**
 <!-- Run `pip show aniworld` or check the version in the app -->
 
 **Installation Method:**
@@ -55,4 +55,4 @@ Replace this with the actual error message
 ## Checklist
 - [ ] I have searched for existing issues before creating this one
 - [ ] I have provided all the requested information
-- [ ] I have tested this with the latest version of AniWorld-Downloader
+- [ ] I have tested this with the latest version of lankabeltv

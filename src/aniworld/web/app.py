@@ -1,5 +1,5 @@
 """
-Flask web application for AniWorld Downloader
+Flask web application for lankabeltv
 """
 
 import logging
@@ -17,7 +17,7 @@ from .download_manager import get_download_manager
 
 
 class WebApp:
-    """Flask web application wrapper for AniWorld Downloader"""
+    """Flask web application wrapper for lankabeltv"""
 
     def __init__(self, host="127.0.0.1", port=5000, debug=False, arguments=None):
         """
@@ -39,7 +39,8 @@ class WebApp:
         self.auth_enabled = (
             getattr(arguments, "enable_web_auth", False) if arguments else False
         )
-        self.db = UserDatabase() if self.auth_enabled else None
+        # Always initialize DB for trackers, even if auth is disabled
+        self.db = UserDatabase()
 
         # Download manager
         self.download_manager = get_download_manager(self.db)
@@ -49,6 +50,9 @@ class WebApp:
 
         # Setup routes
         self._setup_routes()
+
+        # Start tracker processor
+        self.download_manager.start_tracker_processor()
 
     def _create_app(self) -> Flask:
         """Create and configure Flask application."""
@@ -72,6 +76,7 @@ class WebApp:
 
         @wraps(f)
         def decorated_function(*args, **kwargs):
+            # If authentication is disabled, allow all API calls
             if not self.auth_enabled:
                 return f(*args, **kwargs)
 
@@ -80,6 +85,9 @@ class WebApp:
 
             session_token = request.cookies.get("session_token")
             if not session_token:
+                # Still check if we have any users, if not, it's local mode or first setup
+                if not self.db.has_users():
+                    return f(*args, **kwargs)
                 return jsonify({"error": "Authentication required"}), 401
 
             user = self.db.get_user_by_session(session_token)
@@ -99,15 +107,21 @@ class WebApp:
                 return f(*args, **kwargs)
 
             if not self.db:
-                return redirect(url_for("login"))
+                # If no DB but auth enabled, something is wrong, allow login/setup
+                return f(*args, **kwargs)
 
             # Check for session token in cookies
             session_token = request.cookies.get("session_token")
             if not session_token:
+                # If no session, only redirect if we're not already on a public page
+                if request.endpoint in ["login", "setup", "static"]:
+                    return f(*args, **kwargs)
                 return redirect(url_for("login"))
 
             user = self.db.get_user_by_session(session_token)
             if not user:
+                if request.endpoint in ["login", "setup", "static"]:
+                    return f(*args, **kwargs)
                 return redirect(url_for("login"))
 
             # Store user info in Flask session for templates
@@ -767,6 +781,26 @@ class WebApp:
             except Exception as err:
                 logging.error(f"Download error: {err}")
                 return jsonify(
+                    {"success": False, "error": f"Failed to cancel download: {str(err)}"}
+                ), 500
+
+        @self.app.route("/api/download/<int:queue_id>", methods=["DELETE"])
+        @self._require_api_auth
+        def api_delete_download(queue_id):
+            """Delete download from history endpoint."""
+            try:
+                if self.download_manager.delete_download(queue_id):
+                    return jsonify(
+                        {"success": True, "message": f"Download {queue_id} deleted"}
+                    )
+                else:
+                    return jsonify(
+                        {"success": False, "error": f"Failed to delete download {queue_id}"}
+                    ), 400
+
+            except Exception as err:
+                logging.error(f"Download error: {err}")
+                return jsonify(
                     {"success": False, "error": f"Failed to start download: {str(err)}"}
                 ), 500
 
@@ -947,6 +981,109 @@ class WebApp:
                     }
                 ), 500
 
+        @self.app.route("/api/trackers", methods=["GET"])
+        @self._require_api_auth
+        def api_get_trackers():
+            """Get all trackers for the current user."""
+            try:
+                # If authentication is disabled, return all trackers
+                if not self.auth_enabled:
+                    trackers = self.db.get_trackers() if self.db else []
+                    return jsonify({"success": True, "trackers": trackers})
+
+                if not self.db:
+                    return jsonify({"success": False, "error": "Database not available"}), 500
+
+                session_token = request.cookies.get("session_token")
+                if not session_token:
+                    # If no session but no users exist yet, allow access (local mode/first setup)
+                    if not self.db.has_users():
+                        trackers = self.db.get_trackers()
+                        return jsonify({"success": True, "trackers": trackers})
+                    return jsonify({"success": False, "error": "Unauthorized"}), 401
+
+                user = self.db.get_user_by_session(session_token)
+                if not user:
+                    return jsonify({"success": False, "error": "Invalid session"}), 401
+
+                trackers = self.db.get_trackers(user_id=user["id"])
+                return jsonify({"success": True, "trackers": trackers})
+            except Exception as e:
+                logging.error(f"Failed to get trackers: {e}")
+                return jsonify({"success": False, "error": str(e)}), 500
+
+        @self.app.route("/api/trackers/scan", methods=["POST"])
+        @self._require_api_auth
+        def api_scan_trackers():
+            """Manually trigger a scan of all trackers."""
+            try:
+                self.download_manager.trigger_tracker_scan()
+                return jsonify({"success": True, "message": "Tracker scan started"})
+            except Exception as e:
+                logging.error(f"Failed to scan trackers: {e}")
+                return jsonify({"success": False, "error": str(e)}), 500
+
+        @self.app.route("/api/trackers", methods=["POST"])
+        @self._require_api_auth
+        def api_add_tracker():
+            """Add a new tracker."""
+            try:
+                data = request.get_json()
+                anime_title = data.get("anime_title")
+                series_url = data.get("series_url")
+                language = data.get("language")
+                provider = data.get("provider")
+                last_season = data.get("last_season", 0)
+                last_episode = data.get("last_episode", 0)
+
+                if not anime_title or not series_url:
+                    return jsonify({"success": False, "error": "Missing required fields"}), 400
+
+                user_id = None
+                if self.auth_enabled and self.db:
+                    session_token = request.cookies.get("session_token")
+                    user = self.db.get_user_by_session(session_token)
+                    if user:
+                        user_id = user["id"]
+
+                tracker_id = self.db.add_tracker(
+                    user_id=user_id,
+                    anime_title=anime_title,
+                    series_url=series_url,
+                    language=language,
+                    provider=provider,
+                    last_season=last_season,
+                    last_episode=last_episode
+                )
+
+                if tracker_id:
+                    return jsonify({"success": True, "tracker_id": tracker_id})
+                else:
+                    return jsonify({"success": False, "error": "Failed to add tracker"}), 500
+            except Exception as e:
+                logging.error(f"Failed to add tracker: {e}")
+                return jsonify({"success": False, "error": str(e)}), 500
+
+        @self.app.route("/api/trackers/<int:tracker_id>", methods=["DELETE"])
+        @self._require_api_auth
+        def api_delete_tracker(tracker_id):
+            """Delete a tracker."""
+            try:
+                user_id = None
+                if self.auth_enabled and self.db:
+                    session_token = request.cookies.get("session_token")
+                    user = self.db.get_user_by_session(session_token)
+                    if user:
+                        user_id = user["id"]
+
+                if self.db.delete_tracker(tracker_id, user_id=user_id):
+                    return jsonify({"success": True, "message": "Tracker deleted"})
+                else:
+                    return jsonify({"success": False, "error": "Failed to delete tracker"}), 400
+            except Exception as e:
+                logging.error(f"Failed to delete tracker: {e}")
+                return jsonify({"success": False, "error": str(e)}), 500
+
     def _format_uptime(self, seconds: int) -> str:
         """Format uptime in human readable format."""
         if seconds < 60:
@@ -963,7 +1100,7 @@ class WebApp:
 
     def run(self):
         """Run the Flask web application."""
-        logging.info("Starting AniWorld Downloader Web Interface...")
+        logging.info("Starting lankabeltv Web Interface...")
         logging.info(f"Server running at http://{self.host}:{self.port}")
 
         try:
@@ -1034,7 +1171,7 @@ def start_web_interface(arguments=None, port=5000, debug=False):
     )
 
     print("\n" + "=" * 69)
-    print("🌐 AniWorld Downloader Web Interface")
+    print("🌐 lankabeltv Web Interface")
     print("=" * 69)
     print(f"📍 Server Address:   {server_address}")
     print(f"🔐 Security Mode:    {auth_status}")

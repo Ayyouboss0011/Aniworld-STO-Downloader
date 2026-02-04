@@ -1,11 +1,11 @@
-version: '3.8'
 services:
   aniworld:
     container_name: aniworld-downloader
-    image: ghcr.io/phoenixthrush/aniworld-downloader
+    image: aniworld-new
+    command: ["aniworld", "--web-ui", "--web-port", "3005", "--no-browser", "--web-expose", "--output-dir", "/app/downloads"]
     ports:
-      - "8080:8080"
+      - "3005:3005"
     volumes:
-      - ./downloads:/app/downloads
+      - /root/jellyfin/config/meineserien/:/app/downloads
       - ./data:/app/data
     restart: unless-stopped

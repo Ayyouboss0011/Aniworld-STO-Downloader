@@ -1,4 +1,4 @@
-/* AniWorld Downloader Web Interface Styles */
+/* lankabeltv Web Interface Styles */
 
 /* Authentication Styles */
 .auth-container {
@@ -1027,6 +1027,84 @@ body[data-theme="dark"] .particle:nth-child(10) {
     font-weight: 400;
     margin-left: 0.5rem;
     transition: color 0.3s ease;
+}
+
+/* Nav Tabs */
+.nav-tabs {
+    display: flex;
+    gap: 0.5rem;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.nav-tab {
+    background: transparent;
+    color: var(--navbar-secondary);
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    position: relative;
+}
+
+.nav-tab:hover {
+    background: rgba(66, 153, 225, 0.1);
+    color: var(--navbar-text);
+}
+
+.nav-tab.active {
+    background: rgba(66, 153, 225, 0.15);
+    color: #4299e1;
+}
+
+.nav-tab i {
+    font-size: 1rem;
+}
+
+.badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background: #e53e3e;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: bold;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    border: 2px solid var(--navbar-bg);
+}
+
+.badge.pulse {
+    animation: badge-pulse 2s infinite;
+}
+
+@keyframes badge-pulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.7);
+    }
+    
+    70% {
+        transform: scale(1.1);
+        box-shadow: 0 0 0 6px rgba(229, 62, 62, 0);
+    }
+    
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(229, 62, 62, 0);
+    }
 }
 
 .nav-actions {
@@ -2159,12 +2237,34 @@ body[data-theme="dark"] .episode-progress-text {
         padding: 1rem;
     }
 
-    .nav-brand h1 {
-        font-size: 1.2rem;
+    .nav-tabs {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        transform: none;
+        width: 100%;
+        background: var(--navbar-bg);
+        padding: 0.8rem;
+        justify-content: space-around;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        z-index: 100;
+        backdrop-filter: blur(10px);
     }
 
+    .nav-tab {
+        flex-direction: column;
+        gap: 0.2rem;
+        padding: 0.4rem;
+        font-size: 0.8rem;
+    }
+    
     .container {
         padding: 1rem;
+        padding-bottom: 5rem; /* Space for mobile nav */
+    }
+
+    .nav-brand h1 {
+        font-size: 1.2rem;
     }
 
     .search-container {
@@ -2415,8 +2515,8 @@ body[data-theme="dark"] .episode-progress-text {
     }
 }
 
-/* Stop Download Button */
-.stop-download-btn {
+/* Download Management Buttons */
+.stop-download-btn, .delete-download-btn {
     background: #e53e3e;
     color: white;
     border: none;
@@ -2427,7 +2527,7 @@ body[data-theme="dark"] .episode-progress-text {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.2s;
     font-size: 0.7rem;
 }
 
@@ -2436,6 +2536,17 @@ body[data-theme="dark"] .episode-progress-text {
     transform: scale(1.1);
 }
 
-.stop-download-btn:active {
+.delete-download-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-tertiary);
+}
+
+.delete-download-btn:hover {
+    background: #e53e3e;
+    color: white;
+    transform: scale(1.1);
+}
+
+.stop-download-btn:active, .delete-download-btn:active {
     transform: scale(0.9);
 }

@@ -1,5 +1,5 @@
 """
-Download Queue Manager for AniWorld Downloader
+Download Queue Manager for lankabeltv
 Handles global download queue processing and status tracking
 """
 
@@ -49,6 +49,119 @@ class DownloadQueueManager:
                 self.worker_thread.join(timeout=5)
             logging.info("Download queue processor stopped")
 
+    def start_tracker_processor(self):
+        """Start the background tracker processor"""
+        if not hasattr(self, "tracker_thread") or self.tracker_thread is None:
+            self.tracker_thread = threading.Thread(
+                target=self._process_trackers, daemon=True
+            )
+            self.tracker_thread.start()
+            logging.info("Tracker processor started")
+
+    def trigger_tracker_scan(self):
+        """Manually trigger a tracker scan immediately"""
+        logging.info("Manual tracker scan triggered")
+        threading.Thread(target=self._run_single_scan, daemon=True).start()
+        return True
+
+    def _run_single_scan(self):
+        """Run a single pass of checking all trackers"""
+        try:
+            if self.db:
+                trackers = self.db.get_trackers()
+                logging.info(f"Starting manual scan of {len(trackers)} trackers")
+                for tracker in trackers:
+                    self._check_single_tracker(tracker)
+                    time.sleep(1) # Faster scan for manual trigger
+                logging.info("Manual tracker scan completed")
+        except Exception as e:
+            logging.error(f"Error in manual tracker scan: {e}")
+
+    def _process_trackers(self):
+        """Background worker that checks trackers for new episodes"""
+        while True:
+            try:
+                if self.db:
+                    trackers = self.db.get_trackers()
+                    for tracker in trackers:
+                        self._check_single_tracker(tracker)
+                        time.sleep(5)  # Pause between trackers to be polite
+            except Exception as e:
+                logging.error(f"Error in tracker processor: {e}")
+
+            # Wait for 1 hour before next check
+            for _ in range(3600):
+                if hasattr(self, "_stop_event") and self._stop_event.is_set():
+                    return
+                time.sleep(1)
+
+    def _check_single_tracker(self, tracker):
+        """Check a single tracker for new episodes"""
+        try:
+            from ..common import get_season_episode_count
+            from ..entry import _detect_site_from_url
+            from .. import config
+
+            series_url = tracker["series_url"]
+            last_season = tracker["last_season"]
+            last_episode = tracker["last_episode"]
+
+            # Extract slug and base_url
+            if "/anime/stream/" in series_url:
+                slug = series_url.split("/anime/stream/")[-1].rstrip("/")
+                base_url = config.ANIWORLD_TO
+                stream_path = "anime/stream"
+            elif "/serie/stream/" in series_url:
+                slug = series_url.split("/serie/stream/")[-1].rstrip("/")
+                base_url = config.S_TO
+                stream_path = "serie/stream"
+            elif config.S_TO in series_url and "/serie/" in series_url:
+                slug = series_url.split("/serie/")[-1].rstrip("/")
+                base_url = config.S_TO
+                stream_path = "serie"
+            else:
+                return
+
+            # Get current season/episode counts
+            season_counts = get_season_episode_count(slug, base_url)
+
+            new_episodes = []
+            max_s = last_season
+            max_e = last_episode
+
+            for s_num, e_count in season_counts.items():
+                if s_num < last_season:
+                    continue
+                
+                for e_num in range(1, e_count + 1):
+                    if s_num == last_season and e_num <= last_episode:
+                        continue
+                    
+                    # New episode found!
+                    ep_url = f"{base_url}/{stream_path}/{slug}/staffel-{s_num}/episode-{e_num}"
+                    new_episodes.append(ep_url)
+                    
+                    if s_num > max_s or (s_num == max_s and e_num > max_e):
+                        max_s = s_num
+                        max_e = e_num
+
+            if new_episodes:
+                logging.info(f"Tracker found {len(new_episodes)} new episodes for {tracker['anime_title']}")
+                # Add to download queue
+                self.add_download(
+                    anime_title=tracker["anime_title"],
+                    episode_urls=new_episodes,
+                    language=tracker["language"],
+                    provider=tracker["provider"],
+                    total_episodes=len(new_episodes),
+                    created_by=tracker["user_id"]
+                )
+                # Update tracker's last seen episode
+                self.db.update_tracker_last_episode(tracker["id"], max_s, max_e)
+
+        except Exception as e:
+            logging.error(f"Error checking tracker {tracker['id']}: {e}")
+
     def cancel_download(self, queue_id: int) -> bool:
         """Mark a download job as cancelled"""
         with self._queue_lock:
@@ -62,6 +175,24 @@ class DownloadQueueManager:
                             queue_id, "failed", error_message="Download cancelled by user"
                         )
                     return True
+            return False
+
+    def delete_download(self, queue_id: int) -> bool:
+        """Delete a download from the history"""
+        with self._queue_lock:
+            # Check completed downloads
+            for i, download in enumerate(self._completed_downloads):
+                if download["id"] == queue_id:
+                    self._completed_downloads.pop(i)
+                    return True
+            
+            # Check active downloads (if it's not currently processing)
+            if queue_id in self._active_downloads:
+                job = self._active_downloads[queue_id]
+                if job["status"] not in ["downloading"]:
+                    del self._active_downloads[queue_id]
+                    return True
+            
             return False
 
     def add_download(
@@ -110,6 +241,7 @@ class DownloadQueueManager:
         with self._queue_lock:
             active_downloads = []
             for download in self._active_downloads.values():
+                # Any job in active_downloads that isn't finished should be considered active
                 if download["status"] in ["queued", "downloading"]:
                     # Format for API compatibility
                     active_downloads.append(
@@ -132,7 +264,14 @@ class DownloadQueueManager:
                     )
 
             completed_downloads = []
-            for download in self._completed_downloads[-1:]:  # Get last completed
+            # Sort completed downloads by completion time (newest first)
+            sorted_completed = sorted(
+                self._completed_downloads, 
+                key=lambda x: x.get("completed_at", datetime.min), 
+                reverse=True
+            )
+            
+            for download in sorted_completed[:5]:  # Show last 5 completed
                 completed_downloads.append(
                     {
                         "id": download["id"],
