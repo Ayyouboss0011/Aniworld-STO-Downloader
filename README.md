@@ -14,7 +14,7 @@ lankabeltv is a powerful tool for downloading and streaming anime movies and ser
 
 ```bash
 git clone https://github.com/Ayyouboss0011/Aniworld-STO-Downloader.git
-cd lankabeltv
+cd Aniworld-STO-Downloader
 docker-compose up -d --build
 ```
 
@@ -240,7 +240,7 @@ for episode in anime:
 ```bash
 # Clone and install
 git clone https://github.com/Ayyouboss0011/Aniworld-STO-Downloader.git
-cd lankabeltv
+cd Aniworld-STO-Downloader
 pip install -e .
 
 # Install dev dependencies
