@@ -20,6 +20,13 @@ docker-compose up -d --build
 
 Then open http://localhost:3005
 
+**Using Python (No Docker):**
+
+```bash
+pip install --upgrade git+https://github.com/Ayyouboss0011/Aniworld-STO-Downloader.git@next#egg=aniworld
+aniworld --web-ui
+```
+
 ## Features
 
 - **Modern Web Interface**: Easy anime searching, downloading, and queue management
