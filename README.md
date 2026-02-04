@@ -13,7 +13,7 @@ lankabeltv is a powerful tool for downloading and streaming anime movies and ser
 **Using Docker (Recommended):**
 
 ```bash
-git clone https://github.com/phoenixthrush/lankabeltv.git
+git clone https://github.com/Ayyouboss0011/Aniworld-STO-Downloader.git
 cd lankabeltv
 docker-compose up -d --build
 ```
@@ -157,7 +157,7 @@ docker run -d \
 If you prefer to run it without Docker, you can install the latest version directly from GitHub.
 
 ```bash
-pip install --upgrade git+https://github.com/phoenixthrush/lankabeltv.git@next#egg=aniworld
+pip install --upgrade git+https://github.com/Ayyouboss0011/Aniworld-STO-Downloader.git@next#egg=aniworld
 ```
 
 To update later, just run the command again.
@@ -166,7 +166,7 @@ To update later, just run the command again.
 
 1. Clone the repository:
     ```bash
-    git clone https://github.com/phoenixthrush/lankabeltv aniworld
+    git clone https://github.com/Ayyouboss0011/Aniworld-STO-Downloader aniworld
     ```
 
 2. Install in editable mode:
@@ -239,7 +239,7 @@ for episode in anime:
 
 ```bash
 # Clone and install
-git clone https://github.com/phoenixthrush/lankabeltv.git
+git clone https://github.com/Ayyouboss0011/Aniworld-STO-Downloader.git
 cd lankabeltv
 pip install -e .
 
@@ -280,7 +280,7 @@ Visit the official documentation: [lankabeltv-Docs](https://www.phoenixthrush.co
 
 ## Support
 
-- **GitHub Issues**: [Report bugs](https://github.com/phoenixthrush/lankabeltv/issues)
+- **GitHub Issues**: [Report bugs](https://github.com/Ayyouboss0011/Aniworld-STO-Downloader/issues)
 - **Email**: contact@phoenixthrush.com
 - **Discord**: `phoenixthrush` or `tmaster067`
 
