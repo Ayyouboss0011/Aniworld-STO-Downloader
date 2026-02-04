@@ -40,6 +40,12 @@
                 <a href="{{ url_for('index') }}" class="nav-btn" title="Back to Main">
                     <i class="fas fa-home"></i>
                 </a>
+                {% if not auth_enabled %}
+                <button id="theme-toggle" class="nav-btn theme-toggle" title="Toggle light/dark mode">
+                    <i id="theme-icon" class="fas fa-moon"></i>
+                </button>
+                {% endif %}
+                {% if auth_enabled %}
                 <div class="user-dropdown">
                     <button class="nav-btn user-btn" id="user-dropdown-btn" title="User Settings">
                         <i class="fas fa-user"></i>
@@ -50,11 +56,15 @@
                         <button class="dropdown-item" id="theme-toggle-dropdown">
                             <i id="theme-icon-dropdown" class="fas fa-moon"></i> Toggle Theme
                         </button>
+                        <a href="{{ url_for('settings') }}" class="dropdown-item">
+                            <i class="fas fa-cog"></i> Settings
+                        </a>
                         <button class="dropdown-item logout-btn" id="logout-btn">
                             <i class="fas fa-sign-out-alt"></i> Logout
                         </button>
                     </div>
                 </div>
+                {% endif %}
             </div>
         </div>
     </nav>
@@ -62,6 +72,7 @@
     <div class="container">
         <div class="settings-container">
             <!-- User Info Section -->
+            {% if auth_enabled %}
             <div class="settings-section">
                 <h2><i class="fas fa-user"></i> User Information</h2>
                 <div class="user-info">
@@ -69,8 +80,29 @@
                     <p><strong>Role:</strong> {{ 'Original Administrator' if user.is_original_admin else ('Administrator' if user.is_admin else 'User') }}</p>
                 </div>
             </div>
+            {% endif %}
+
+            <!-- System Settings Section -->
+            <div class="settings-section">
+                <h2><i class="fas fa-cog"></i> System Settings</h2>
+                <form id="systemSettingsForm" class="password-form">
+                    <div class="form-row-password">
+                        <div class="form-group" style="grid-column: span 3;">
+                            <label for="downloadPath">Download Path</label>
+                            <input type="text" id="downloadPath" placeholder="Default: ~/Downloads">
+                            <small class="text-muted">Achtung: Bei Container Usage ist der Pfad der intern in dem Container ist.</small>
+                        </div>
+                        <div class="form-group button-group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Settings
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
 
             <!-- Change Password Section -->
+            {% if auth_enabled %}
             <div class="settings-section">
                 <h2><i class="fas fa-key"></i> Change Password</h2>
 
@@ -96,9 +128,10 @@
                     </div>
                 </form>
             </div>
+            {% endif %}
 
             <!-- Admin User Management Section -->
-            {% if user.is_admin %}
+            {% if auth_enabled and user.is_admin %}
             <div class="settings-section">
                 <h2><i class="fas fa-users"></i> User Management</h2>
 
@@ -188,11 +221,16 @@
             // Load version info
             loadVersionInfo();
 
+            // Load settings
+            loadSettings();
+
             // User dropdown functionality
             const userDropdownBtn = document.getElementById('user-dropdown-btn');
             const userDropdownMenu = document.getElementById('user-dropdown-menu');
             const themeToggleDropdown = document.getElementById('theme-toggle-dropdown');
             const themeIconDropdown = document.getElementById('theme-icon-dropdown');
+            const themeToggle = document.getElementById('theme-toggle');
+            const themeIcon = document.getElementById('theme-icon');
 
             if (userDropdownBtn && userDropdownMenu) {
                 userDropdownBtn.addEventListener('click', function(e) {
@@ -222,6 +260,7 @@
                     document.body.setAttribute('data-theme', newTheme);
                     localStorage.setItem('theme', newTheme);
                     updateDropdownThemeIcon(newTheme);
+                    if (typeof updateThemeIcon === 'function') updateThemeIcon(newTheme);
                 });
 
                 function updateDropdownThemeIcon(theme) {
@@ -229,6 +268,29 @@
                         themeIconDropdown.className = 'fas fa-sun';
                     } else {
                         themeIconDropdown.className = 'fas fa-moon';
+                    }
+                }
+            }
+
+            // Standalone theme toggle
+            if (themeToggle && themeIcon) {
+                updateThemeIcon(savedTheme);
+
+                themeToggle.addEventListener('click', function() {
+                    const currentTheme = document.body.getAttribute('data-theme');
+                    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+                    document.body.setAttribute('data-theme', newTheme);
+                    localStorage.setItem('theme', newTheme);
+                    updateThemeIcon(newTheme);
+                    if (typeof updateDropdownThemeIcon === 'function') updateDropdownThemeIcon(newTheme);
+                });
+
+                function updateThemeIcon(theme) {
+                    if (theme === 'dark') {
+                        themeIcon.className = 'fas fa-sun';
+                    } else {
+                        themeIcon.className = 'fas fa-moon';
                     }
                 }
             }
@@ -245,6 +307,52 @@
                 } catch (error) {
                     console.error('Failed to load version info:', error);
                 }
+            }
+
+            async function loadSettings() {
+                try {
+                    const response = await fetch('/api/download-path');
+                    const data = await response.json();
+
+                    const downloadPathInput = document.getElementById('downloadPath');
+                    if (downloadPathInput && data.path) {
+                        downloadPathInput.value = data.path;
+                    }
+                } catch (error) {
+                    console.error('Failed to load settings:', error);
+                }
+            }
+
+            // System settings form
+            const systemSettingsForm = document.getElementById('systemSettingsForm');
+            if (systemSettingsForm) {
+                systemSettingsForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+
+                    const downloadPath = document.getElementById('downloadPath').value;
+
+                    try {
+                        const response = await fetch('/api/download-path', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                path: downloadPath
+                            })
+                        });
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            showMessage(data.message, 'success');
+                        } else {
+                            showMessage(data.error, 'error');
+                        }
+                    } catch (error) {
+                        showMessage('Failed to save settings: ' + error.message, 'error');
+                    }
+                });
             }
 
             // Change password form

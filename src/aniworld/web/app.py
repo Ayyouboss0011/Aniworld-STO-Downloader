@@ -274,14 +274,20 @@ class WebApp:
         @self._require_auth
         def settings():
             """Settings page route."""
-            if not self.auth_enabled or not self.db:
+            # If auth disabled, create a dummy admin user for the template
+            if not self.auth_enabled:
+                user = {"username": "Local User", "is_admin": True, "is_original_admin": True, "id": 0}
+                users = []
+                return render_template("settings.html", user=user, users=users, auth_enabled=False)
+
+            if not self.db:
                 return redirect(url_for("index"))
 
             session_token = request.cookies.get("session_token")
             user = self.db.get_user_by_session(session_token)
             users = self.db.get_all_users() if user and user["is_admin"] else []
 
-            return render_template("settings.html", user=user, users=users)
+            return render_template("settings.html", user=user, users=users, auth_enabled=True)
 
         # User management API routes
         @self.app.route("/api/users", methods=["GET"])
@@ -804,24 +810,44 @@ class WebApp:
                     {"success": False, "error": f"Failed to start download: {str(err)}"}
                 ), 500
 
-        @self.app.route("/api/download-path")
+        @self.app.route("/api/download-path", methods=["GET", "POST"])
         @self._require_api_auth
         def api_download_path():
-            """Get download path endpoint."""
+            """Get or set download path endpoint."""
             try:
-                # Use arguments.output_dir if available, otherwise fall back to default
-                download_path = str(config.DEFAULT_DOWNLOAD_PATH)
-                if (
-                    self.arguments
-                    and hasattr(self.arguments, "output_dir")
-                    and self.arguments.output_dir is not None
-                ):
-                    download_path = str(self.arguments.output_dir)
+                if request.method == "POST":
+                    data = request.get_json()
+                    new_path = data.get("path")
+                    
+                    if not new_path:
+                        return jsonify({"success": False, "error": "Path is required"}), 400
+                        
+                    # Save to database
+                    if self.db and self.db.set_setting("download_path", new_path):
+                        return jsonify({"success": True, "message": "Download path updated", "path": new_path})
+                    else:
+                        return jsonify({"success": False, "error": "Failed to save setting"}), 500
+                
+                # GET request
+                # Check database first
+                download_path = None
+                if self.db:
+                    download_path = self.db.get_setting("download_path")
+
+                # Fallback to arguments/defaults if not in DB
+                if not download_path:
+                    download_path = str(config.DEFAULT_DOWNLOAD_PATH)
+                    if (
+                        self.arguments
+                        and hasattr(self.arguments, "output_dir")
+                        and self.arguments.output_dir is not None
+                    ):
+                        download_path = str(self.arguments.output_dir)
 
                 return jsonify({"path": download_path})
             except Exception as err:
-                logging.error(f"Failed to get download path: {err}")
-                return jsonify({"path": str(config.DEFAULT_DOWNLOAD_PATH)}), 500
+                logging.error(f"Failed to get/set download path: {err}")
+                return jsonify({"path": str(config.DEFAULT_DOWNLOAD_PATH), "error": str(err)}), 500
 
         @self.app.route("/api/episodes", methods=["POST"])
         @self._require_api_auth

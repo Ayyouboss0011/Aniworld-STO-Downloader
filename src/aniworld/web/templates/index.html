@@ -47,6 +47,9 @@
             </div>
             <div class="nav-actions">
                 {% if not (auth_enabled and user) %}
+                <a href="{{ url_for('settings') }}" class="nav-btn" title="Settings" style="margin-right: 0.5rem; width: 40px; height: 40px; border-radius: 50%; padding: 0;">
+                    <i class="fas fa-cog"></i>
+                </a>
                 <button id="theme-toggle" class="nav-btn theme-toggle" title="Toggle light/dark mode">
                     <i id="theme-icon" class="fas fa-moon"></i>
                 </button>

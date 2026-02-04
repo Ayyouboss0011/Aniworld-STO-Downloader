@@ -7,6 +7,6 @@ services:
     ports:
       - "3005:3005"
     volumes:
-      - /root/jellyfin/config/meineserien/:/app/downloads
+      - ~/Desktop/Ani-Downloads:/app/downloads
       - ./data:/app/data
     restart: unless-stopped

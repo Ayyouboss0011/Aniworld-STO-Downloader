@@ -85,6 +85,14 @@ class UserDatabase:
                 )
             """)
 
+            # Create settings table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT
+                )
+            """)
+
             # Note: download_queue table removed - download status now handled in memory
 
             conn.commit()
@@ -575,6 +583,31 @@ class UserDatabase:
                     cursor.execute("DELETE FROM trackers WHERE id = ?", (tracker_id,))
                 conn.commit()
                 return cursor.rowcount > 0
+        except Exception:
+            return False
+
+    def get_setting(self, key: str, default: Optional[str] = None) -> Optional[str]:
+        """Get a setting value by key."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT value FROM settings WHERE key = ?", (key,))
+                row = cursor.fetchone()
+                return row[0] if row else default
+        except Exception:
+            return default
+
+    def set_setting(self, key: str, value: str) -> bool:
+        """Set a setting value."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+                    (key, value),
+                )
+                conn.commit()
+                return True
         except Exception:
             return False
 

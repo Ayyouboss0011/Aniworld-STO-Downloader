@@ -382,6 +382,12 @@ class DownloadQueueManager:
             if hasattr(arguments, "output_dir") and arguments.output_dir is not None:
                 download_dir = str(arguments.output_dir)
 
+            # Check database settings for custom download path (overrides arguments)
+            if self.db:
+                custom_download_path = self.db.get_setting("download_path")
+                if custom_download_path:
+                    download_dir = custom_download_path
+
             for anime in anime_list:
                 for episode in anime.episode_list:
                     if self._stop_event.is_set() or queue_id in self._cancelled_jobs:
