@@ -8,5 +8,8 @@ services:
       - "3005:3005"
     volumes:
       - ~/Desktop/Ani-Downloads:/app/downloads
-      - ./data:/app/data
+      - aniworld-data:/app/data
     restart: unless-stopped
+
+volumes:
+  aniworld-data:

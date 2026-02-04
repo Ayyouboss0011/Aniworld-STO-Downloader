@@ -22,9 +22,6 @@ RUN apt-get update && apt-get install -y \
     # Clean up apt cache to reduce image size
     && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user for security
-RUN useradd --create-home --shell /bin/bash aniworld
-
 # Set working directory
 WORKDIR /app
 
@@ -37,12 +34,8 @@ RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt && \
     pip install -e .
 
-# Create necessary directories and set permissions
-RUN mkdir -p /app/downloads /app/data && \
-    chown -R aniworld:aniworld /app
-
-# Switch to non-root user
-USER aniworld
+# Create necessary directories
+RUN mkdir -p /app/downloads /app/data
 
 # Expose port for web interface
 EXPOSE 8080
