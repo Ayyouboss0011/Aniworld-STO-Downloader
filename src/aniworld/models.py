@@ -180,6 +180,7 @@ class Anime:
                     f"{self.base_url}/{self.stream_path}/{self.slug}",
                     timeout=DEFAULT_REQUEST_TIMEOUT,
                     headers=headers,
+                    allow_redirects=True,
                 )
                 self._html_cache.raise_for_status()
             except requests.RequestException as err:
@@ -760,14 +761,36 @@ class Episode:
             # Check for new s.to structure
             if self.site == "s.to":
                 language_codes = set()
+                
+                # 1. Try new link-box buttons
                 provider_buttons = episode_soup.find_all("button", class_="link-box")
-                if provider_buttons:
-                    for button in provider_buttons:
-                        lang_key = button.get("data-language-id")
-                        if lang_key and lang_key.isdigit():
-                            language_codes.add(int(lang_key))
-                    if language_codes:
-                        return sorted(list(language_codes))
+                for button in provider_buttons:
+                    lang_key = button.get("data-language-id")
+                    if lang_key and lang_key.isdigit():
+                        language_codes.add(int(lang_key))
+                
+                # 2. Try SVG flag icons (based on season table but might be on episode page too)
+                svg_flags = episode_soup.find_all("svg", class_=lambda x: x and "svg-flag-" in x)
+                for svg in svg_flags:
+                    svg_class = " ".join(svg.get("class", []))
+                    if "svg-flag-german" in svg_class:
+                        language_codes.add(1)
+                    elif "svg-flag-english" in svg_class:
+                        language_codes.add(2)
+                    elif "svg-flag-japanese" in svg_class:
+                        language_codes.add(3)
+
+                # 3. Try hoster-tabs/selection areas
+                hoster_nav = episode_soup.find("div", class_="hoster-nav")
+                if hoster_nav:
+                    lang_links = hoster_nav.find_all("a", class_="language-link")
+                    for link in lang_links:
+                        # Extract from class or data attribute
+                        if "german" in link.get("class", []): language_codes.add(1)
+                        if "english" in link.get("class", []): language_codes.add(2)
+
+                if language_codes:
+                    return sorted(list(language_codes))
 
             change_language_box = episode_soup.find("div", class_="changeLanguageBox")
 
@@ -814,38 +837,55 @@ class Episode:
             soup = BeautifulSoup(self.html.content, "html.parser")
             providers = {}
 
-            # Handle new s.to structure
+            # Handle s.to structure (new and legacy)
             if self.site == "s.to":
+                # 1. New Link-box structure
                 provider_buttons = soup.find_all("button", class_="link-box")
-                if provider_buttons:
-                    for button in provider_buttons:
-                        redirect_path = button.get("data-play-url")
-                        lang_key_str = button.get("data-language-id")
-                        
-                        provider_name = None
-                        provider_name_span = button.find("span", class_="ms-1")
-                        if provider_name_span:
-                            provider_name = provider_name_span.get_text(strip=True)
-                        else:
-                            # Fallback: Try to clean text content
-                            full_text = button.get_text(strip=True)
-                            provider_name = full_text
-
-                        if redirect_path and lang_key_str and lang_key_str.isdigit() and provider_name:
-                            lang_key = int(lang_key_str)
-                            redirect_url = f"{self.base_url}{redirect_path}"
-                            
-                            if provider_name not in providers:
-                                providers[provider_name] = {}
-                            providers[provider_name][lang_key] = redirect_url
+                for button in provider_buttons:
+                    redirect_path = button.get("data-play-url")
+                    lang_key_str = button.get("data-language-id")
                     
-                    if providers:
-                        logging.debug(
-                            'Available providers for "%s" (s.to):\\n%s',
-                            self.anime_title,
-                            json.dumps(providers, indent=2),
-                        )
-                        return providers
+                    provider_name = None
+                    provider_name_span = button.find("span", class_="ms-1")
+                    if provider_name_span:
+                        provider_name = provider_name_span.get_text(strip=True)
+                    else:
+                        full_text = button.get_text(strip=True)
+                        provider_name = full_text
+
+                    if redirect_path and lang_key_str and lang_key_str.isdigit() and provider_name:
+                        lang_key = int(lang_key_str)
+                        redirect_url = f"{self.base_url}{redirect_path}"
+                        if provider_name not in providers: providers[provider_name] = {}
+                        providers[provider_name][lang_key] = redirect_url
+
+                # 2. Try 'hoster-nav' structure (Alternative s.to layout)
+                if not providers:
+                    hoster_tabs = soup.find_all("li", class_="hoster-tab")
+                    for tab in hoster_tabs:
+                        link = tab.find("a", href=True)
+                        if link:
+                            # Usually contains provider name in text or img alt
+                            provider_name = link.get_text(strip=True)
+                            img = link.find("img")
+                            if img and img.get("alt"): provider_name = img["alt"]
+                            
+                            redirect_path = link["href"]
+                            # Language might be in a separate tab or data attribute
+                            lang_key = 1 # Default to German for now if not found
+                            
+                            if provider_name and redirect_path:
+                                redirect_url = f"{self.base_url}{redirect_path}"
+                                if provider_name not in providers: providers[provider_name] = {}
+                                providers[provider_name][lang_key] = redirect_url
+
+                if providers:
+                    logging.debug(
+                        'Available providers for "%s" (s.to):\\n%s',
+                        self.anime_title,
+                        json.dumps(providers, indent=2),
+                    )
+                    return providers
 
             episode_links = soup.find_all(
                 "li", class_=lambda x: x and x.startswith("episodeLink")
@@ -1294,8 +1334,17 @@ class Episode:
             if self.link:
                 if not self.slug:
                     try:
-                        self.slug = self.link.split("/")[-3]
-                    except IndexError:
+                        # Improved slug extraction for different path structures
+                        parts = self.link.rstrip("/").split("/")
+                        if "stream" in parts:
+                            self.slug = parts[parts.index("stream") + 1]
+                        elif "serie" in parts:
+                            self.slug = parts[parts.index("serie") + 1]
+                        elif "anime" in parts:
+                            self.slug = parts[parts.index("anime") + 1]
+                        else:
+                            self.slug = parts[-3]
+                    except (IndexError, ValueError):
                         logging.warning(
                             "Could not extract slug from link: %s", self.link
                         )

@@ -484,84 +484,154 @@ def _parse_season_episodes_details(soup: BeautifulSoup, season: int) -> List[Dic
     episode_links = soup.find_all("a", href=True)
     seen_episodes = set()
     
-    for link in episode_links:
-        href = link["href"]
-        if f"staffel-{season}/episode-" in href:
+    # Try the new s.to table structure first
+    episode_rows = soup.find_all("tr", class_="episode-row")
+    if episode_rows:
+        for row in episode_rows:
             try:
-                # Extract episode number
-                # Link format: .../staffel-X/episode-Y or .../staffel-X/episode-Y/
+                # Skip upcoming episodes to avoid errors
+                if "upcoming" in row.get("class", []):
+                    continue
+
+                # Handle onclick or data-url or similar
+                onclick = row.get("onclick", "")
+                href_match = re.search(r"'/([^']+)'", onclick)
+                if not href_match:
+                    # Try to find a link inside
+                    link_tag = row.find("a", href=True)
+                    if link_tag:
+                        href = link_tag["href"]
+                    else:
+                        continue
+                else:
+                    href = href_match.group(1)
+
+                if f"staffel-{season}/episode-" not in href:
+                    continue
+
                 parts = href.rstrip("/").split("/")
                 ep_part = parts[-1]
-                if not ep_part.startswith("episode-"):
-                    continue
-                    
                 ep_num = int(ep_part.replace("episode-", ""))
-                
+
                 if ep_num in seen_episodes:
                     continue
                 seen_episodes.add(ep_num)
-                
+
                 languages = []
                 
-                # Find container: Try tr (table row) first, then li (list item), then parent
-                container = link.find_parent("tr")
-                if not container:
-                    container = link.find_parent("li")
-                if not container:
-                    container = link.parent
-                
-                if container:
-                    # Look for language icons in this container
-                    # Prefer 'editFunctions' cell if available
-                    lang_container = container.find("td", class_="editFunctions")
-                    if not lang_container:
-                        lang_container = container
+                # Extract languages from SVG flags or icons
+                lang_cell = row.find("td", class_="episode-language-cell")
+                if lang_cell:
+                    # s.to uses SVGs for flags
+                    svgs = lang_cell.find_all("svg", class_=lambda x: x and "watch-language" in x)
+                    for svg in svgs:
+                        svg_class = " ".join(svg.get("class", []))
+                        if "svg-flag-german" in svg_class:
+                            languages.append(1) # German Dub
+                        elif "svg-flag-english" in svg_class:
+                            languages.append(2) # English Dub/Sub
+                        elif "svg-flag-japanese" in svg_class:
+                            languages.append(3) # Japanese (Sub)
 
-                    # 1. Try data-lang-key attribute
-                    imgs = lang_container.find_all("img")
-                    # If no images in lang_container, try looking in the whole container
-                    if not imgs:
-                        imgs = container.find_all("img")
-                        
-                    for img in imgs:
-                        lang_key = None
-                        
-                        # Check data-lang-key
-                        if img.has_attr("data-lang-key"):
-                            try:
-                                lang_key = int(img["data-lang-key"])
-                            except ValueError:
-                                pass
-                        
-                        # Fallback: Check title/alt text if data-lang-key missing
-                        if lang_key is None:
-                            title = (img.get("title") or img.get("alt") or "").lower()
-                            src = (img.get("src") or "").lower()
-                            
-                            # German Sub (usually 3)
-                            # Check this BEFORE German Dub to avoid partial match on 'german.svg'
-                            if ("deutsch" in title and "untertitel" in title) or "japanese-german.svg" in src:
-                                lang_key = 3
-                            # English Sub/Dub (usually 2)
-                            elif "english" in title or "englisch" in title or "english.svg" in src or "japanese-english.svg" in src:
-                                lang_key = 2
-                            # German Dub (usually 1)
-                            elif ("deutsch" in title and "synchronisation" in title) or "german.svg" in src:
-                                lang_key = 1
-                        
-                        if lang_key is not None:
-                            languages.append(lang_key)
-                
-                unique_langs = sorted(list(set(languages))) if languages else []
-                # logging.debug(f"Season {season} Episode {ep_num} detected languages: {unique_langs}")
-                
+                # Extract titles
+                german_title = ""
+                english_title = ""
+                title_cell = row.find("td", class_="episode-title-cell")
+                if title_cell:
+                    ger_tag = title_cell.find("strong", class_="episode-title-ger")
+                    eng_tag = title_cell.find("span", class_="episode-title-eng")
+                    if ger_tag: german_title = ger_tag.get_text(strip=True)
+                    if eng_tag: english_title = eng_tag.get_text(strip=True)
+
                 episodes.append({
                     "season": season,
                     "episode": ep_num,
-                    "languages": unique_langs
+                    "languages": sorted(list(set(languages))),
+                    "title_german": german_title,
+                    "title_english": english_title
                 })
-            except (ValueError, IndexError):
+            except (ValueError, IndexError, AttributeError):
                 continue
+
+    # Fallback for old/aniworld structure if no rows found or list is empty
+    if not episodes:
+        for link in episode_links:
+            href = link["href"]
+            if f"staffel-{season}/episode-" in href:
+                try:
+                    # Extract episode number
+                    # Link format: .../staffel-X/episode-Y or .../staffel-X/episode-Y/
+                    parts = href.rstrip("/").split("/")
+                    ep_part = parts[-1]
+                    if not ep_part.startswith("episode-"):
+                        continue
+                        
+                    ep_num = int(ep_part.replace("episode-", ""))
+                    
+                    if ep_num in seen_episodes:
+                        continue
+                    seen_episodes.add(ep_num)
+                    
+                    languages = []
+                    
+                    # Find container: Try tr (table row) first, then li (list item), then parent
+                    container = link.find_parent("tr")
+                    if not container:
+                        container = link.find_parent("li")
+                    if not container:
+                        container = link.parent
+                    
+                    if container:
+                        # Look for language icons in this container
+                        # Prefer 'editFunctions' cell if available
+                        lang_container = container.find("td", class_="editFunctions")
+                        if not lang_container:
+                            lang_container = container
+
+                        # 1. Try data-lang-key attribute
+                        imgs = lang_container.find_all("img")
+                        # If no images in lang_container, try looking in the whole container
+                        if not imgs:
+                            imgs = container.find_all("img")
+                            
+                        for img in imgs:
+                            lang_key = None
+                            
+                            # Check data-lang-key
+                            if img.has_attr("data-lang-key"):
+                                try:
+                                    lang_key = int(img["data-lang-key"])
+                                except ValueError:
+                                    pass
+                            
+                            # Fallback: Check title/alt text if data-lang-key missing
+                            if lang_key is None:
+                                title = (img.get("title") or img.get("alt") or "").lower()
+                                src = (img.get("src") or "").lower()
+                                
+                                # German Sub (usually 3)
+                                # Check this BEFORE German Dub to avoid partial match on 'german.svg'
+                                if ("deutsch" in title and "untertitel" in title) or "japanese-german.svg" in src:
+                                    lang_key = 3
+                                # English Sub/Dub (usually 2)
+                                elif "english" in title or "englisch" in title or "english.svg" in src or "japanese-english.svg" in src:
+                                    lang_key = 2
+                                # German Dub (usually 1)
+                                elif ("deutsch" in title and "synchronisation" in title) or "german.svg" in src:
+                                    lang_key = 1
+                            
+                            if lang_key is not None:
+                                languages.append(lang_key)
+                    
+                    unique_langs = sorted(list(set(languages))) if languages else []
+                    
+                    episodes.append({
+                        "season": season,
+                        "episode": ep_num,
+                        "languages": unique_langs
+                    })
+                except (ValueError, IndexError):
+                    continue
                 
     return sorted(episodes, key=lambda x: x["episode"])
 
@@ -592,6 +662,7 @@ def get_season_episodes_details(slug: str, link: str = ANIWORLD_TO) -> Dict[int,
                 base_url = f"{S_TO}/serie/stream/{slug}"
 
         response = _make_request(base_url)
+        # Use final URL after redirects for subsequent requests
         final_url = response.url.rstrip("/")
         soup = BeautifulSoup(response.content, "html.parser")
 
@@ -659,7 +730,7 @@ def get_season_episode_count(slug: str, link: str = ANIWORLD_TO) -> Dict[int, in
                 base_url = f"{S_TO}/serie/stream/{slug}"
 
         response = _make_request(base_url)
-        # Update base_url in case of redirect (e.g. s.to/serie/stream/x -> s.to/serie/x)
+        # Use final URL after redirects for subsequent requests (e.g. s.to/serie/stream/x -> s.to/serie/x)
         final_url = response.url.rstrip("/")
         soup = BeautifulSoup(response.content, "html.parser")
 

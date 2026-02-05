@@ -65,223 +65,244 @@
     </nav>
 
     <div class="container">
-        <div class="settings-container">
-            <!-- User Info Section -->
-            {% if auth_enabled %}
-            <div class="settings-section">
-                <h2><i class="fas fa-user"></i> User Information</h2>
-                <div class="user-info">
-                    <p><strong>Username:</strong> {{ user.username }}</p>
-                    <p><strong>Role:</strong> {{ 'Original Administrator' if user.is_original_admin else ('Administrator' if user.is_admin else 'User') }}</p>
-                </div>
-            </div>
-            {% endif %}
+        <div class="settings-layout">
+            <!-- Sidebar -->
+            <aside class="settings-sidebar">
+                <button class="settings-nav-item active" data-section="general">
+                    <i class="fas fa-cog"></i> General Settings
+                </button>
+                {% if auth_enabled %}
+                <button class="settings-nav-item" data-section="security">
+                    <i class="fas fa-key"></i> Security
+                </button>
+                {% endif %}
+                <button class="settings-nav-item" data-section="languages">
+                    <i class="fas fa-language"></i> Languages
+                </button>
+                {% if auth_enabled and user.is_admin %}
+                <button class="settings-nav-item" data-section="users">
+                    <i class="fas fa-users"></i> User Management
+                </button>
+                {% endif %}
+            </aside>
 
-            <!-- System Settings Section -->
-            <div class="settings-section">
-                <h2><i class="fas fa-cog"></i> System Settings</h2>
-                <form id="systemSettingsForm" class="password-form">
-                    <div class="form-row-password">
-                        <div class="form-group" style="grid-column: span 3; position: relative;">
-                            <label for="downloadPath">Download Path</label>
-                            <input type="text" id="downloadPath" placeholder="Default: ~/Downloads">
-                            <small class="text-muted" style="position: absolute; top: 100%; left: 0; width: 100%; margin-top: 0.5rem;">Achtung: Bei Container Usage ist der Pfad der intern in dem Container ist.</small>
-                        </div>
-                        <div class="form-group button-group">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save"></i> Save Settings
-                            </button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Change Password Section -->
-            {% if auth_enabled %}
-            <div class="settings-section">
-                <h2><i class="fas fa-key"></i> Change Password</h2>
-
-                <form id="changePasswordForm" class="password-form">
-                    <div class="form-row-password">
-                        <div class="form-group">
-                            <label for="currentPassword">Current Password</label>
-                            <input type="password" id="currentPassword" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="newPassword">New Password</label>
-                            <input type="password" id="newPassword" required minlength="6">
-                        </div>
-                        <div class="form-group">
-                            <label for="confirmNewPassword">Confirm New Password</label>
-                            <input type="password" id="confirmNewPassword" required>
-                        </div>
-                        <div class="form-group button-group">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save"></i> Change Password
-                            </button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            {% endif %}
-
-            <!-- Language Preferences Section -->
-            <div class="settings-section">
-                <h2><i class="fas fa-language"></i> Language Preferences</h2>
-                <p class="text-muted" style="margin-bottom: 1.5rem;">Definiere hier deine bevorzugten Sprachen in der gewünschten Reihenfolge. Diese werden automatisch vorselektiert.</p>
+            <!-- Content Area -->
+            <main class="settings-content">
                 
-                <form id="languagePreferencesForm">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
-                        <!-- AniWorld Preferences -->
-                        <div class="site-prefs">
-                            <h3>AniWorld.to</h3>
-                            <div class="pref-group" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
-                                <div class="form-group">
-                                    <label>1. Priorität</label>
-                                    <select class="lang-pref-select aniworld-pref" data-index="0">
-                                        <option value="">- Keine -</option>
-                                        <option value="German Dub">German Dub</option>
-                                        <option value="German Sub">German Sub</option>
-                                        <option value="English Sub">English Sub</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>2. Priorität</label>
-                                    <select class="lang-pref-select aniworld-pref" data-index="1">
-                                        <option value="">- Keine -</option>
-                                        <option value="German Dub">German Dub</option>
-                                        <option value="German Sub">German Sub</option>
-                                        <option value="English Sub">English Sub</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>3. Priorität</label>
-                                    <select class="lang-pref-select aniworld-pref" data-index="2">
-                                        <option value="">- Keine -</option>
-                                        <option value="German Dub">German Dub</option>
-                                        <option value="German Sub">German Sub</option>
-                                        <option value="English Sub">English Sub</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- S.to Preferences -->
-                        <div class="site-prefs">
-                            <h3>S.to</h3>
-                            <div class="pref-group" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
-                                <div class="form-group">
-                                    <label>1. Priorität</label>
-                                    <select class="lang-pref-select sto-pref" data-index="0">
-                                        <option value="">- Keine -</option>
-                                        <option value="German Dub">German Dub</option>
-                                        <option value="English Dub">English Dub</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>2. Priorität</label>
-                                    <select class="lang-pref-select sto-pref" data-index="1">
-                                        <option value="">- Keine -</option>
-                                        <option value="German Dub">German Dub</option>
-                                        <option value="English Dub">English Dub</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>3. Priorität</label>
-                                    <select class="lang-pref-select sto-pref" data-index="2">
-                                        <option value="">- Keine -</option>
-                                        <option value="German Dub">German Dub</option>
-                                        <option value="English Dub">English Dub</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
+                <!-- General Settings Section -->
+                <section id="general" class="settings-section active">
+                    <h2><i class="fas fa-cog"></i> General Settings</h2>
+                    {% if auth_enabled %}
+                    <div class="user-info" style="margin-bottom: 2rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: 10px;">
+                        <p><strong>Username:</strong> {{ user.username }}</p>
+                        <p><strong>Role:</strong> {{ 'Original Administrator' if user.is_original_admin else ('Administrator' if user.is_admin else 'User') }}</p>
                     </div>
+                    {% endif %}
                     
-                    <div class="form-group button-group" style="margin-top: 2rem; display: flex; justify-content: flex-end;">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i> Save Preferences
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Admin User Management Section -->
-            {% if auth_enabled and user.is_admin %}
-            <div class="settings-section">
-                <h2><i class="fas fa-users"></i> User Management</h2>
-
-                <!-- Add User Form -->
-                <div class="add-user-form">
-                    <h3>Add New User</h3>
-                    <form id="addUserForm">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="newUsername">Username</label>
-                                <input type="text" id="newUsername" required minlength="3">
-                            </div>
-                            <div class="form-group">
-                                <label for="newUserPassword">Password</label>
-                                <input type="password" id="newUserPassword" required minlength="6">
-                            </div>
-                            <div class="form-group checkbox-group">
-                                <label>
-                                    <input type="checkbox" id="newIsAdmin"> Administrator
-                                </label>
+                    <form id="systemSettingsForm" class="password-form">
+                        <div class="form-row-password">
+                            <div class="form-group" style="position: relative;">
+                                <label for="downloadPath">Download Path</label>
+                                <input type="text" id="downloadPath" placeholder="Default: ~/Downloads">
+                                <small class="text-muted" style="margin-top: 0.5rem; display: block;">Achtung: Bei Container Usage ist der Pfad der intern in dem Container ist.</small>
                             </div>
                             <div class="form-group button-group">
                                 <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-user-plus"></i> Add User
+                                    <i class="fas fa-save"></i> Save Settings
                                 </button>
                             </div>
                         </div>
                     </form>
-                </div>
+                </section>
 
-                <!-- Users List -->
-                <div class="users-list">
-                    <h3>Existing Users</h3>
-                    <div class="table-container">
-                        <table class="users-table">
-                            <thead>
-                                <tr>
-                                    <th>Username</th>
-                                    <th>Role</th>
-                                    <th>Created</th>
-                                    <th>Last Login</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="usersTableBody">
-                                {% for u in users %}
-                                <tr data-user-id="{{ u.id }}">
-                                    <td>{{ u.username }}</td>
-                                    <td>
-                                        <span class="role-badge {{ 'original-admin' if u.is_original_admin else ('admin' if u.is_admin else 'user') }}">
-                                            {{ 'Original Admin' if u.is_original_admin else ('Admin' if u.is_admin else 'User') }}
-                                        </span>
-                                    </td>
-                                    <td>{{ u.created_at[:19] if u.created_at else 'N/A' }}</td>
-                                    <td>{{ u.last_login[:19] if u.last_login else 'Never' }}</td>
-                                    <td>
-                                        {% if u.id != user.id and not u.is_original_admin %}
-                                        <button class="btn btn-sm btn-danger delete-user" data-user-id="{{ u.id }}" data-username="{{ u.username }}">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                        {% elif u.is_original_admin %}
-                                        <span class="text-muted">(Protected)</span>
-                                        {% else %}
-                                        <span class="text-muted">(Current User)</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                <!-- Change Password Section -->
+                {% if auth_enabled %}
+                <section id="security" class="settings-section">
+                    <h2><i class="fas fa-key"></i> Security Settings</h2>
+                    <p class="text-muted" style="margin-bottom: 1.5rem;">Update your password to keep your account secure.</p>
+
+                    <form id="changePasswordForm" class="password-form">
+                        <div class="form-row-password">
+                            <div class="form-group">
+                                <label for="currentPassword">Current Password</label>
+                                <input type="password" id="currentPassword" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="newPassword">New Password</label>
+                                <input type="password" id="newPassword" required minlength="6">
+                            </div>
+                            <div class="form-group">
+                                <label for="confirmNewPassword">Confirm New Password</label>
+                                <input type="password" id="confirmNewPassword" required>
+                            </div>
+                            <div class="form-group button-group">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Change Password
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </section>
+                {% endif %}
+
+                <!-- Language Preferences Section -->
+                <section id="languages" class="settings-section">
+                    <h2><i class="fas fa-language"></i> Language Preferences</h2>
+                    <p class="text-muted" style="margin-bottom: 2rem;">Definiere hier deine bevorzugten Sprachen in der gewünschten Reihenfolge. Diese werden automatisch vorselektiert.</p>
+                    
+                    <form id="languagePreferencesForm">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+                            <!-- AniWorld Preferences -->
+                            <div class="site-prefs" style="padding: 1.5rem; background: var(--bg-secondary); border-radius: 12px;">
+                                <h3 style="margin-bottom: 1.5rem; color: var(--text-primary);"><i class="fas fa-tv" style="margin-right: 10px; color: #667eea;"></i> AniWorld.to</h3>
+                                <div class="pref-group" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                                    <div class="form-group">
+                                        <label>1. Priorität</label>
+                                        <select class="lang-pref-select aniworld-pref" data-index="0" style="padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary);">
+                                            <option value="">- Keine -</option>
+                                            <option value="German Dub">German Dub</option>
+                                            <option value="German Sub">German Sub</option>
+                                            <option value="English Sub">English Sub</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>2. Priorität</label>
+                                        <select class="lang-pref-select aniworld-pref" data-index="1" style="padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary);">
+                                            <option value="">- Keine -</option>
+                                            <option value="German Dub">German Dub</option>
+                                            <option value="German Sub">German Sub</option>
+                                            <option value="English Sub">English Sub</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>3. Priorität</label>
+                                        <select class="lang-pref-select aniworld-pref" data-index="2" style="padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary);">
+                                            <option value="">- Keine -</option>
+                                            <option value="German Dub">German Dub</option>
+                                            <option value="German Sub">German Sub</option>
+                                            <option value="English Sub">English Sub</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- S.to Preferences -->
+                            <div class="site-prefs" style="padding: 1.5rem; background: var(--bg-secondary); border-radius: 12px;">
+                                <h3 style="margin-bottom: 1.5rem; color: var(--text-primary);"><i class="fas fa-film" style="margin-right: 10px; color: #764ba2;"></i> S.to</h3>
+                                <div class="pref-group" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                                    <div class="form-group">
+                                        <label>1. Priorität</label>
+                                        <select class="lang-pref-select sto-pref" data-index="0" style="padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary);">
+                                            <option value="">- Keine -</option>
+                                            <option value="German Dub">German Dub</option>
+                                            <option value="English Dub">English Dub</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>2. Priorität</label>
+                                        <select class="lang-pref-select sto-pref" data-index="1" style="padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary);">
+                                            <option value="">- Keine -</option>
+                                            <option value="German Dub">German Dub</option>
+                                            <option value="English Dub">English Dub</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>3. Priorität</label>
+                                        <select class="lang-pref-select sto-pref" data-index="2" style="padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary);">
+                                            <option value="">- Keine -</option>
+                                            <option value="German Dub">German Dub</option>
+                                            <option value="English Dub">English Dub</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group button-group" style="margin-top: 2rem; display: flex; justify-content: flex-end;">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Preferences
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- Admin User Management Section -->
+                {% if auth_enabled and user.is_admin %}
+                <section id="users" class="settings-section">
+                    <h2><i class="fas fa-users"></i> User Management</h2>
+
+                    <!-- Add User Form -->
+                    <div class="add-user-form" style="margin-bottom: 3rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: 12px;">
+                        <h3 style="margin-bottom: 1.5rem; font-size: 1.1rem;">Add New User</h3>
+                        <form id="addUserForm">
+                            <div class="form-row" style="flex-wrap: wrap; align-items: flex-end;">
+                                <div class="form-group" style="flex: 1; min-width: 200px;">
+                                    <label for="newUsername">Username</label>
+                                    <input type="text" id="newUsername" required minlength="3">
+                                </div>
+                                <div class="form-group" style="flex: 1; min-width: 200px;">
+                                    <label for="newUserPassword">Password</label>
+                                    <input type="password" id="newUserPassword" required minlength="6">
+                                </div>
+                                <div class="form-group checkbox-group" style="min-width: 120px;">
+                                    <label>
+                                        <input type="checkbox" id="newIsAdmin"> Admin
+                                    </label>
+                                </div>
+                                <div class="form-group button-group" style="min-width: 120px;">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-user-plus"></i> Add
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
                     </div>
-                </div>
-            </div>
-            {% endif %}
+
+                    <!-- Users List -->
+                    <div class="users-list">
+                        <h3 style="margin-bottom: 1.5rem; font-size: 1.1rem;">Existing Users</h3>
+                        <div class="table-container">
+                            <table class="users-table">
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Role</th>
+                                        <th>Created</th>
+                                        <th>Last Login</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTableBody">
+                                    {% for u in users %}
+                                    <tr data-user-id="{{ u.id }}">
+                                        <td>{{ u.username }}</td>
+                                        <td>
+                                            <span class="role-badge {{ 'original-admin' if u.is_original_admin else ('admin' if u.is_admin else 'user') }}">
+                                                {{ 'Original Admin' if u.is_original_admin else ('Admin' if u.is_admin else 'User') }}
+                                            </span>
+                                        </td>
+                                        <td>{{ u.created_at[:19] if u.created_at else 'N/A' }}</td>
+                                        <td>{{ u.last_login[:19] if u.last_login else 'Never' }}</td>
+                                        <td>
+                                            {% if u.id != user.id and not u.is_original_admin %}
+                                            <button class="btn btn-sm btn-danger delete-user" data-user-id="{{ u.id }}" data-username="{{ u.username }}">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                            {% elif u.is_original_admin %}
+                                            <span class="text-muted" style="font-size: 0.8rem;">(Protected)</span>
+                                            {% else %}
+                                            <span class="text-muted" style="font-size: 0.8rem;">(You)</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+                {% endif %}
+            </main>
         </div>
     </div>
 
@@ -290,12 +311,41 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Sidebar Navigation Logic
+            const navItems = document.querySelectorAll('.settings-nav-item');
+            const sections = document.querySelectorAll('.settings-section');
+
+            navItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    const sectionId = item.getAttribute('data-section');
+                    
+                    // Update active nav item
+                    navItems.forEach(nav => nav.classList.remove('active'));
+                    item.classList.add('active');
+
+                    // Show active section
+                    sections.forEach(section => {
+                        section.classList.remove('active');
+                        if (section.id === sectionId) {
+                            section.classList.add('active');
+                        }
+                    });
+
+                    // Update URL hash without jumping
+                    history.pushState(null, null, `#${sectionId}`);
+                });
+            });
+
+            // Handle URL hash on load
+            const currentHash = window.location.hash.substring(1);
+            if (currentHash) {
+                const targetNav = document.querySelector(`.settings-nav-item[data-section="${currentHash}"]`);
+                if (targetNav) targetNav.click();
+            }
+
             // Theme handling
             const savedTheme = localStorage.getItem('theme') || 'dark';
             document.body.setAttribute('data-theme', savedTheme);
-
-            // Load version info
-            loadVersionInfo();
 
             // Load settings
             loadSettings();
@@ -306,8 +356,6 @@
             const userDropdownMenu = document.getElementById('user-dropdown-menu');
             const themeToggleDropdown = document.getElementById('theme-toggle-dropdown');
             const themeIconDropdown = document.getElementById('theme-icon-dropdown');
-            const themeToggle = document.getElementById('theme-toggle');
-            const themeIcon = document.getElementById('theme-icon');
 
             if (userDropdownBtn && userDropdownMenu) {
                 userDropdownBtn.addEventListener('click', function(e) {
@@ -315,12 +363,10 @@
                     userDropdownMenu.classList.toggle('show');
                 });
 
-                // Close dropdown when clicking outside
                 document.addEventListener('click', function() {
                     userDropdownMenu.classList.remove('show');
                 });
 
-                // Prevent dropdown from closing when clicking inside it
                 userDropdownMenu.addEventListener('click', function(e) {
                     e.stopPropagation();
                 });
@@ -337,7 +383,6 @@
                     document.body.setAttribute('data-theme', newTheme);
                     localStorage.setItem('theme', newTheme);
                     updateDropdownThemeIcon(newTheme);
-                    if (typeof updateThemeIcon === 'function') updateThemeIcon(newTheme);
                 });
 
                 function updateDropdownThemeIcon(theme) {
@@ -346,43 +391,6 @@
                     } else {
                         themeIconDropdown.className = 'fas fa-moon';
                     }
-                }
-            }
-
-            // Standalone theme toggle
-            if (themeToggle && themeIcon) {
-                updateThemeIcon(savedTheme);
-
-                themeToggle.addEventListener('click', function() {
-                    const currentTheme = document.body.getAttribute('data-theme');
-                    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-
-                    document.body.setAttribute('data-theme', newTheme);
-                    localStorage.setItem('theme', newTheme);
-                    updateThemeIcon(newTheme);
-                    if (typeof updateDropdownThemeIcon === 'function') updateDropdownThemeIcon(newTheme);
-                });
-
-                function updateThemeIcon(theme) {
-                    if (theme === 'dark') {
-                        themeIcon.className = 'fas fa-sun';
-                    } else {
-                        themeIcon.className = 'fas fa-moon';
-                    }
-                }
-            }
-
-            async function loadVersionInfo() {
-                try {
-                    const response = await fetch('/api/info');
-                    const data = await response.json();
-
-                    const versionDisplay = document.getElementById('version-display');
-                    if (versionDisplay && data.version) {
-                        versionDisplay.textContent = `v${data.version}`;
-                    }
-                } catch (error) {
-                    console.error('Failed to load version info:', error);
                 }
             }
 
@@ -527,23 +535,26 @@
             }
 
             // Logout functionality
-            document.getElementById('logout-btn').addEventListener('click', async function() {
-                try {
-                    const response = await fetch('/logout', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        }
-                    });
+            const logoutBtn = document.getElementById('logout-btn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', async function() {
+                    try {
+                        const response = await fetch('/logout', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            }
+                        });
 
-                    const data = await response.json();
-                    if (data.success) {
-                        window.location.href = data.redirect;
+                        const data = await response.json();
+                        if (data.success) {
+                            window.location.href = data.redirect;
+                        }
+                    } catch (error) {
+                        showMessage('Logout failed: ' + error.message, 'error');
                     }
-                } catch (error) {
-                    showMessage('Logout failed: ' + error.message, 'error');
-                }
-            });
+                });
+            }
 
             // Add user form
             const addUserForm = document.getElementById('addUserForm');
@@ -640,7 +651,7 @@
                                 `<button class="btn btn-sm btn-danger delete-user" data-user-id="${u.id}" data-username="${u.username}">
                                     <i class="fas fa-trash"></i>
                                 </button>` :
-                                (u.is_original_admin ? '<span class="text-muted">(Protected)</span>' : '<span class="text-muted">(Current User)</span>')
+                                (u.is_original_admin ? '<span class="text-muted" style="font-size: 0.8rem;">(Protected)</span>' : '<span class="text-muted" style="font-size: 0.8rem;">(You)</span>')
                             }
                         </td>
                     </tr>
@@ -658,14 +669,12 @@
 
                 container.appendChild(messageEl);
 
-                // Auto-remove after 5 seconds
                 setTimeout(() => {
                     if (messageEl.parentNode) {
                         messageEl.parentNode.removeChild(messageEl);
                     }
                 }, 5000);
 
-                // Manual close
                 messageEl.querySelector('.message-close').addEventListener('click', () => {
                     if (messageEl.parentNode) {
                         messageEl.parentNode.removeChild(messageEl);
