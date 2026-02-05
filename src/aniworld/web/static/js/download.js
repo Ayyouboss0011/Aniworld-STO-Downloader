@@ -97,6 +97,15 @@ export const Download = {
         this.state.availableMovies = [];
         this.state.episodeLanguageSelections = {};
         if (this.elements.trackCheckbox) this.elements.trackCheckbox.checked = false;
+
+        // Reset all download button loaders
+        document.querySelectorAll('.download-btn.loading').forEach(btn => {
+            btn.classList.remove('loading');
+            const text = btn.querySelector('.btn-text');
+            const loader = btn.querySelector('.btn-loader');
+            if (text) text.style.display = 'inline-block';
+            if (loader) loader.style.display = 'none';
+        });
     },
 
     populateProviderDropdown(site, availableList = null) {

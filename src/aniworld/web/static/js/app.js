@@ -69,12 +69,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    // Close modals when clicking outside
-    window.addEventListener('click', function(e) {
-        if (e.target === Download.elements.downloadModal) Download.hideModal();
-        if (e.target === Queue.elements.stopModal) Queue.elements.stopModal.style.display = 'none';
-    });
-
     async function loadVersionInfo() {
         try {
             const data = await API.getInfo();

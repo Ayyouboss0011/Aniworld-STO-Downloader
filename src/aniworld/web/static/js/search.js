@@ -89,13 +89,25 @@ export const Search = {
                     <strong>Slug:</strong> ${escapeHtml(anime.slug || 'Unknown')}<br>
                 </div>
                 <div class="anime-actions">
-                    <button class="download-btn">Download</button>
+                    <button class="download-btn">
+                        <span class="btn-text">Download</span>
+                        <i class="fas fa-spinner fa-spin btn-loader" style="display: none;"></i>
+                    </button>
                 </div>
             </div>
         `;
 
-        card.querySelector('.download-btn').addEventListener('click', () => {
+        card.querySelector('.download-btn').addEventListener('click', (e) => {
+            const btn = e.currentTarget;
+            if (btn.classList.contains('loading')) return;
+
             if (window.showDownloadModal) {
+                btn.classList.add('loading');
+                const text = btn.querySelector('.btn-text');
+                const loader = btn.querySelector('.btn-loader');
+                if (text) text.style.display = 'none';
+                if (loader) loader.style.display = 'inline-block';
+
                 window.showDownloadModal(anime.title, 'Series', anime.url);
             }
         });
