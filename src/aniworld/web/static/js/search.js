@@ -67,9 +67,10 @@ export const Search = {
     createAnimeCard(anime) {
         const card = document.createElement('div');
         card.className = 'anime-card';
-        let coverStyle = '';
+        
+        let coverUrl = '';
         if (anime.cover) {
-            let coverUrl = anime.cover;
+            coverUrl = anime.cover;
             if (!coverUrl.startsWith('http')) {
                 const baseUrl = anime.site === 's.to' ? 'https://s.to' : 'https://aniworld.to';
                 if (coverUrl.startsWith('//')) coverUrl = 'https:' + coverUrl;
@@ -77,15 +78,16 @@ export const Search = {
                 else coverUrl = baseUrl + '/' + coverUrl;
             }
             coverUrl = coverUrl.replace("150x225", "220x330");
-            coverStyle = `style="background-image: url('${coverUrl}')"`;
         }
 
         card.innerHTML = `
-            <div class="anime-card-background" ${coverStyle}></div>
+            <div class="anime-card-poster">
+                ${coverUrl ? `<img src="${coverUrl}" alt="${escapeHtml(anime.title)}">` : `<div class="no-poster"><i class="fas fa-film"></i></div>`}
+            </div>
             <div class="anime-card-content">
                 <div class="anime-title">${escapeHtml(anime.title)}</div>
                 <div class="anime-info">
-                    <strong>Site:</strong> ${escapeHtml(anime.site || 'aniworld.to')}<br>
+                    <span class="site-badge ${escapeHtml(anime.site || 'aniworld.to').replace('.', '-')}">${escapeHtml(anime.site || 'aniworld.to')}</span><br>
                     <strong>Slug:</strong> ${escapeHtml(anime.slug || 'Unknown')}<br>
                 </div>
                 <div class="anime-actions">

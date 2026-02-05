@@ -631,6 +631,7 @@ class WebApp:
                     # Use the same field names as CLI search
                     name = anime.get("name", "Unknown Name")
                     year = anime.get("productionYear", "Unknown Year")
+                    cover = anime.get("cover", "")
 
                     # Create title like CLI does, but avoid double parentheses
                     if year and year != "Unknown Year" and str(year) not in name:
@@ -646,7 +647,7 @@ class WebApp:
                         "name": name,
                         "year": year,
                         "site": anime_site,
-                        "cover": anime.get("cover", ""),
+                        "cover": cover,
                     }
 
                     processed_results.append(processed_anime)

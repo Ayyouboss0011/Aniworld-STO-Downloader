@@ -6,6 +6,7 @@ import logging
 import re
 from typing import List, Dict, Optional, Union
 from functools import lru_cache
+from concurrent.futures import ThreadPoolExecutor
 
 from bs4 import BeautifulSoup
 
@@ -172,6 +173,29 @@ def search_anime(
                 "link": link,
                 "productionYear": "" # s.to suggest API doesn't provide year
             })
+        
+        # Fetch covers for s.to results in parallel if we are returning the list
+        if only_return and anime_list:
+            def fetch_sto_cover(anime):
+                try:
+                    full_url = f"{S_TO}/{anime['link']}"
+                    resp = requests.get(full_url, timeout=DEFAULT_REQUEST_TIMEOUT)
+                    if resp.status_code == 200:
+                        soup = BeautifulSoup(resp.text, "html.parser")
+                        # Based on provided HTML: find picture -> img[data-src]
+                        # The user pointed out col-lg-2 for desktop cover
+                        img = soup.select_one(".col-lg-2 picture img")
+                        if img:
+                            cover = img.get("data-src") or img.get("src")
+                            if cover and cover.startswith("/"):
+                                cover = S_TO + cover
+                            anime["cover"] = cover
+                except Exception as e:
+                    logging.debug(f"Failed to fetch cover for {anime['name']}: {e}")
+                return anime
+
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                anime_list = list(executor.map(fetch_sto_cover, anime_list))
 
     if only_return:
         return anime_list
