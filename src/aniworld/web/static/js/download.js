@@ -214,11 +214,38 @@ export const Download = {
         }
         this.elements.episodeTree.innerHTML = '';
         const episodesToVerify = [];
+        const seasons = Object.keys(this.state.availableEpisodes).sort((a, b) => Number(a) - Number(b));
 
-        Object.keys(this.state.availableEpisodes).sort((a, b) => Number(a) - Number(b)).forEach(seasonNum => {
+        // Add Season Navigation if more than 3 seasons
+        if (seasons.length > 2) {
+            const seasonNav = document.createElement('div');
+            seasonNav.className = 'season-nav';
+            seasonNav.style.cssText = 'display: flex; flex-wrap: wrap; gap: 5px; padding: 10px; background: var(--tree-header-bg); border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 10;';
+            
+            seasons.forEach(sNum => {
+                const navBtn = document.createElement('button');
+                navBtn.className = 'control-btn';
+                navBtn.textContent = `S${sNum}`;
+                navBtn.title = `Jump to Season ${sNum}`;
+                navBtn.onclick = () => {
+                    const el = this.elements.episodeTree.querySelector(`.season-container[data-season-container="${sNum}"]`);
+                    if (el) {
+                        el.classList.remove('collapsed');
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                };
+                seasonNav.appendChild(navBtn);
+            });
+            this.elements.episodeTree.appendChild(seasonNav);
+        }
+
+        seasons.forEach((seasonNum, index) => {
             const season = this.state.availableEpisodes[seasonNum];
             const seasonContainer = document.createElement('div');
-            seasonContainer.className = 'season-container';
+            
+            // On AniWorld, "filme" might be season 0 or similar. Let's ensure we collapse anything but index 0
+            seasonContainer.className = 'season-container' + (index > 0 ? ' collapsed' : '');
+            seasonContainer.dataset.seasonContainer = seasonNum;
             seasonContainer.innerHTML = `
                 <div class="season-header" data-season="${seasonNum}">
                     <input type="checkbox" class="season-checkbox" id="season-${seasonNum}">
@@ -228,7 +255,24 @@ export const Download = {
             `;
             const header = seasonContainer.querySelector('.season-header');
             const epContainer = seasonContainer.querySelector('.episodes-container');
-            seasonContainer.querySelector('.season-checkbox').addEventListener('change', (e) => this.toggleSeason(seasonNum, e.target.checked));
+
+            // Toggle collapse logic
+            header.addEventListener('click', (e) => {
+                // Don't toggle if clicking checkbox, label or language badges
+                if (e.target.closest('.season-checkbox') || e.target.closest('.season-label') || e.target.closest('.season-lang-badge')) {
+                    return;
+                }
+                seasonContainer.classList.toggle('collapsed');
+            });
+
+            seasonContainer.querySelector('.season-checkbox').addEventListener('change', (e) => {
+                e.stopPropagation();
+                this.toggleSeason(seasonNum, e.target.checked);
+            });
+
+            seasonContainer.querySelector('.season-label').addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
 
             season.forEach(episode => {
                 const epItem = document.createElement('div');

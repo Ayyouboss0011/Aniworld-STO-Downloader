@@ -2224,11 +2224,26 @@ body[data-theme="dark"] .episode-progress-text {
     border-bottom: 1px solid var(--border-color);
     cursor: pointer;
     transition: all 0.2s ease;
+    position: sticky;
+    top: 0;
+    z-index: 5;
 }
 
 .season-header:hover {
     background: var(--tree-hover);
-    padding-left: 1.5rem;
+}
+
+.season-header::after {
+    content: '\f078';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    margin-left: auto;
+    transition: transform 0.3s ease;
+    color: var(--text-tertiary);
+}
+
+.season-container.collapsed .season-header::after {
+    transform: rotate(-90deg);
 }
 
 .season-checkbox,
@@ -2280,7 +2295,15 @@ body[data-theme="dark"] .episode-progress-text {
 
 .episodes-container {
     background: var(--modal-bg);
-    transition: background 0.3s ease;
+    transition: all 0.3s ease;
+    overflow: hidden;
+    max-height: 2000px; /* High enough to show all episodes */
+}
+
+.season-container.collapsed .episodes-container {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
 }
 
 .episode-item-tree {
@@ -2379,6 +2402,7 @@ body[data-theme="dark"] .episode-progress-text {
     display: flex;
     gap: 0.5rem;
     margin-left: 1rem;
+    margin-right: 1rem;
 }
 
 .season-lang-badge {
