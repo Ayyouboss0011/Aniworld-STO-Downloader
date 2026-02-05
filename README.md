@@ -6,7 +6,7 @@ lankabeltv is a powerful, all-in-one tool for downloading and streaming anime fr
 
 [![License](https://img.shields.io/pypi/l/aniworld?label=License&color=blue)](LICENSE)
 
-![lankabeltv - Demo](readme_thumbnail.png)
+![lankabeltv - Demo](readme_image.png)
 
 ## 🚀 Quick Start
 
