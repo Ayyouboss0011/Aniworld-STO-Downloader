@@ -7,6 +7,7 @@ from .common import (
     get_github_release as get_github_release,
     get_movie_episode_count as get_movie_episode_count,
     get_season_episode_count as get_season_episode_count,
+    get_season_episodes_details as get_season_episodes_details,
     remove_anime4k as remove_anime4k,
     remove_mpv_scripts as remove_mpv_scripts,
     setup_autoexit as setup_autoexit,

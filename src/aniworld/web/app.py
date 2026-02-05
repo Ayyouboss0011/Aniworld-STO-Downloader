@@ -771,6 +771,9 @@ class WebApp:
                         }
                     ), 400
 
+                # Get per-episode configuration
+                episodes_config = data.get("episodes_config")
+
                 # Add to download queue
                 queue_id = self.download_manager.add_download(
                     anime_title=anime_title,
@@ -779,6 +782,7 @@ class WebApp:
                     provider=provider,
                     total_episodes=total_episodes,
                     created_by=current_user["id"] if current_user else None,
+                    episodes_config=episodes_config,
                 )
 
                 if not queue_id:
@@ -892,6 +896,44 @@ class WebApp:
                 logging.error(f"Failed to get/set download path: {err}")
                 return jsonify({"path": str(config.DEFAULT_DOWNLOAD_PATH), "error": str(err)}), 500
 
+        @self.app.route("/api/settings/language-preferences", methods=["GET", "POST"])
+        @self._require_api_auth
+        def api_language_preferences():
+            """Get or set language preferences endpoint."""
+            try:
+                import json
+                if request.method == "POST":
+                    data = request.get_json()
+                    aniworld_prefs = data.get("aniworld", [])
+                    sto_prefs = data.get("sto", [])
+                    
+                    if self.db:
+                        self.db.set_setting("lang_pref_aniworld", json.dumps(aniworld_prefs))
+                        self.db.set_setting("lang_pref_sto", json.dumps(sto_prefs))
+                        return jsonify({"success": True, "message": "Language preferences updated"})
+                    else:
+                        return jsonify({"success": False, "error": "Database not available"}), 500
+                
+                # GET request
+                aniworld_prefs = []
+                sto_prefs = []
+                if self.db:
+                    aniworld_raw = self.db.get_setting("lang_pref_aniworld")
+                    sto_raw = self.db.get_setting("lang_pref_sto")
+                    if aniworld_raw:
+                        aniworld_prefs = json.loads(aniworld_raw)
+                    if sto_raw:
+                        sto_prefs = json.loads(sto_raw)
+                
+                return jsonify({
+                    "success": True, 
+                    "aniworld": aniworld_prefs, 
+                    "sto": sto_prefs
+                })
+            except Exception as err:
+                logging.error(f"Failed to get/set language preferences: {err}")
+                return jsonify({"success": False, "error": str(err)}), 500
+
         @self.app.route("/api/episodes", methods=["POST"])
         @self._require_api_auth
         def api_episodes():
@@ -913,6 +955,7 @@ class WebApp:
                     from ..common import (
                         get_season_episode_count,
                         get_movie_episode_count,
+                        get_season_episodes_details,
                     )
                     from ..entry import _detect_site_from_url
                     from .. import config
@@ -935,21 +978,46 @@ class WebApp:
                     else:
                         raise ValueError("Invalid series URL format")
 
-                    # Use existing function to get season/episode counts
-                    season_counts = get_season_episode_count(slug, base_url)
+                    # Use new function to get season/episode details
+                    try:
+                        episodes_details = get_season_episodes_details(slug, base_url)
+                        
+                        # Fallback to counts if details failed (empty)
+                        if not episodes_details:
+                            season_counts = get_season_episode_count(slug, base_url)
+                            episodes_details = {}
+                            for s, c in season_counts.items():
+                                episodes_details[s] = [{"season": s, "episode": e, "languages": []} for e in range(1, c + 1)]
+                    except Exception as e:
+                        logging.error(f"Failed to get episode details: {e}")
+                        # Fallback
+                        season_counts = get_season_episode_count(slug, base_url)
+                        episodes_details = {}
+                        for s, c in season_counts.items():
+                            episodes_details[s] = [{"season": s, "episode": e, "languages": []} for e in range(1, c + 1)]
 
                     # Build episodes structure
                     episodes_by_season = {}
-                    for season_num, episode_count in season_counts.items():
-                        if episode_count > 0:
+                    
+                    # Convert site-specific language codes to names for frontend
+                    site_lang_names = config.SITE_LANGUAGE_NAMES.get(_site, {})
+                    
+                    for season_num, ep_list in episodes_details.items():
+                        if ep_list:
                             episodes_by_season[season_num] = []
-                            for ep_num in range(1, episode_count + 1):
+                            for ep_data in ep_list:
+                                ep_num = ep_data["episode"]
+                                lang_codes = ep_data.get("languages", [])
+                                lang_names = [site_lang_names.get(code, f"Unknown({code})") for code in lang_codes]
+                                
                                 episodes_by_season[season_num].append(
                                     {
                                         "season": season_num,
                                         "episode": ep_num,
                                         "title": f"Episode {ep_num}",
                                         "url": f"{base_url}/{stream_path}/{slug}/staffel-{season_num}/episode-{ep_num}",
+                                        "languages": lang_names,
+                                        "language_codes": lang_codes
                                     }
                                 )
 

@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
+<body data-theme="dark">
     <!-- Animated Background -->
     <div class="background-container">
         <div class="cloud"></div>
@@ -125,6 +125,87 @@
             </div>
             {% endif %}
 
+            <!-- Language Preferences Section -->
+            <div class="settings-section">
+                <h2><i class="fas fa-language"></i> Language Preferences</h2>
+                <p class="text-muted" style="margin-bottom: 1.5rem;">Definiere hier deine bevorzugten Sprachen in der gewünschten Reihenfolge. Diese werden automatisch vorselektiert.</p>
+                
+                <form id="languagePreferencesForm">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                        <!-- AniWorld Preferences -->
+                        <div class="site-prefs">
+                            <h3>AniWorld.to</h3>
+                            <div class="pref-group" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
+                                <div class="form-group">
+                                    <label>1. Priorität</label>
+                                    <select class="lang-pref-select aniworld-pref" data-index="0">
+                                        <option value="">- Keine -</option>
+                                        <option value="German Dub">German Dub</option>
+                                        <option value="German Sub">German Sub</option>
+                                        <option value="English Sub">English Sub</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>2. Priorität</label>
+                                    <select class="lang-pref-select aniworld-pref" data-index="1">
+                                        <option value="">- Keine -</option>
+                                        <option value="German Dub">German Dub</option>
+                                        <option value="German Sub">German Sub</option>
+                                        <option value="English Sub">English Sub</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>3. Priorität</label>
+                                    <select class="lang-pref-select aniworld-pref" data-index="2">
+                                        <option value="">- Keine -</option>
+                                        <option value="German Dub">German Dub</option>
+                                        <option value="German Sub">German Sub</option>
+                                        <option value="English Sub">English Sub</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- S.to Preferences -->
+                        <div class="site-prefs">
+                            <h3>S.to</h3>
+                            <div class="pref-group" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
+                                <div class="form-group">
+                                    <label>1. Priorität</label>
+                                    <select class="lang-pref-select sto-pref" data-index="0">
+                                        <option value="">- Keine -</option>
+                                        <option value="German Dub">German Dub</option>
+                                        <option value="English Dub">English Dub</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>2. Priorität</label>
+                                    <select class="lang-pref-select sto-pref" data-index="1">
+                                        <option value="">- Keine -</option>
+                                        <option value="German Dub">German Dub</option>
+                                        <option value="English Dub">English Dub</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>3. Priorität</label>
+                                    <select class="lang-pref-select sto-pref" data-index="2">
+                                        <option value="">- Keine -</option>
+                                        <option value="German Dub">German Dub</option>
+                                        <option value="English Dub">English Dub</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group button-group" style="margin-top: 2rem; display: flex; justify-content: flex-end;">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Preferences
+                        </button>
+                    </div>
+                </form>
+            </div>
+
             <!-- Admin User Management Section -->
             {% if auth_enabled and user.is_admin %}
             <div class="settings-section">
@@ -218,6 +299,7 @@
 
             // Load settings
             loadSettings();
+            loadLanguagePreferences();
 
             // User dropdown functionality
             const userDropdownBtn = document.getElementById('user-dropdown-btn');
@@ -316,6 +398,54 @@
                 } catch (error) {
                     console.error('Failed to load settings:', error);
                 }
+            }
+
+            async function loadLanguagePreferences() {
+                try {
+                    const response = await fetch('/api/settings/language-preferences');
+                    const data = await response.json();
+                    if (data.success) {
+                        if (data.aniworld) {
+                            const aniSelects = document.querySelectorAll('.aniworld-pref');
+                            data.aniworld.forEach((val, i) => {
+                                if (aniSelects[i]) aniSelects[i].value = val;
+                            });
+                        }
+                        if (data.sto) {
+                            const stoSelects = document.querySelectorAll('.sto-pref');
+                            data.sto.forEach((val, i) => {
+                                if (stoSelects[i]) stoSelects[i].value = val;
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to load language preferences:', error);
+                }
+            }
+
+            // Language preferences form
+            const languagePreferencesForm = document.getElementById('languagePreferencesForm');
+            if (languagePreferencesForm) {
+                languagePreferencesForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const aniworld = Array.from(document.querySelectorAll('.aniworld-pref')).map(s => s.value).filter(v => v !== "");
+                    const sto = Array.from(document.querySelectorAll('.sto-pref')).map(s => s.value).filter(v => v !== "");
+                    try {
+                        const response = await fetch('/api/settings/language-preferences', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ aniworld, sto })
+                        });
+                        const data = await response.json();
+                        if (data.success) {
+                            showMessage(data.message, 'success');
+                        } else {
+                            showMessage(data.error, 'error');
+                        }
+                    } catch (error) {
+                        showMessage('Failed to save preferences: ' + error.message, 'error');
+                    }
+                });
             }
 
             // System settings form
@@ -493,7 +623,7 @@
 
             function updateUsersTable(users) {
                 const tbody = document.getElementById('usersTableBody');
-                const currentUserId = {{ user.id }};
+                const currentUserId = {{ user.id if user else 0 }};
 
                 tbody.innerHTML = users.map(u => `
                     <tr data-user-id="${u.id}">

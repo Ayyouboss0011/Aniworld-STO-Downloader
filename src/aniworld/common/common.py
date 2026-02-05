@@ -478,6 +478,158 @@ def _parse_season_episodes(soup: BeautifulSoup, season: int) -> int:
     return len(unique_links)
 
 
+def _parse_season_episodes_details(soup: BeautifulSoup, season: int) -> List[Dict]:
+    """Parse episode details (number and languages) for a specific season."""
+    episodes = []
+    episode_links = soup.find_all("a", href=True)
+    seen_episodes = set()
+    
+    for link in episode_links:
+        href = link["href"]
+        if f"staffel-{season}/episode-" in href:
+            try:
+                # Extract episode number
+                # Link format: .../staffel-X/episode-Y or .../staffel-X/episode-Y/
+                parts = href.rstrip("/").split("/")
+                ep_part = parts[-1]
+                if not ep_part.startswith("episode-"):
+                    continue
+                    
+                ep_num = int(ep_part.replace("episode-", ""))
+                
+                if ep_num in seen_episodes:
+                    continue
+                seen_episodes.add(ep_num)
+                
+                languages = []
+                
+                # Find container: Try tr (table row) first, then li (list item), then parent
+                container = link.find_parent("tr")
+                if not container:
+                    container = link.find_parent("li")
+                if not container:
+                    container = link.parent
+                
+                if container:
+                    # Look for language icons in this container
+                    # Prefer 'editFunctions' cell if available
+                    lang_container = container.find("td", class_="editFunctions")
+                    if not lang_container:
+                        lang_container = container
+
+                    # 1. Try data-lang-key attribute
+                    imgs = lang_container.find_all("img")
+                    # If no images in lang_container, try looking in the whole container
+                    if not imgs:
+                        imgs = container.find_all("img")
+                        
+                    for img in imgs:
+                        lang_key = None
+                        
+                        # Check data-lang-key
+                        if img.has_attr("data-lang-key"):
+                            try:
+                                lang_key = int(img["data-lang-key"])
+                            except ValueError:
+                                pass
+                        
+                        # Fallback: Check title/alt text if data-lang-key missing
+                        if lang_key is None:
+                            title = (img.get("title") or img.get("alt") or "").lower()
+                            src = (img.get("src") or "").lower()
+                            
+                            # German Sub (usually 3)
+                            # Check this BEFORE German Dub to avoid partial match on 'german.svg'
+                            if ("deutsch" in title and "untertitel" in title) or "japanese-german.svg" in src:
+                                lang_key = 3
+                            # English Sub/Dub (usually 2)
+                            elif "english" in title or "englisch" in title or "english.svg" in src or "japanese-english.svg" in src:
+                                lang_key = 2
+                            # German Dub (usually 1)
+                            elif ("deutsch" in title and "synchronisation" in title) or "german.svg" in src:
+                                lang_key = 1
+                        
+                        if lang_key is not None:
+                            languages.append(lang_key)
+                
+                unique_langs = sorted(list(set(languages))) if languages else []
+                # logging.debug(f"Season {season} Episode {ep_num} detected languages: {unique_langs}")
+                
+                episodes.append({
+                    "season": season,
+                    "episode": ep_num,
+                    "languages": unique_langs
+                })
+            except (ValueError, IndexError):
+                continue
+                
+    return sorted(episodes, key=lambda x: x["episode"])
+
+
+def get_season_episodes_details(slug: str, link: str = ANIWORLD_TO) -> Dict[int, List[Dict]]:
+    """
+    Get detailed episode info (including languages) for each season.
+    
+    Args:
+        slug: Anime slug from URL
+        link: Base Url
+
+    Returns:
+        Dictionary mapping season numbers to list of episode details
+    """
+    # Reuse cache logic if possible, or create new cache key
+    cache_key = f"seasons_details_{slug}"
+    if cache_key in _ANIME_DATA_CACHE:
+        return _ANIME_DATA_CACHE[cache_key]
+
+    try:
+        if S_TO not in link:
+            base_url = f"{ANIWORLD_TO}/anime/stream/{slug}"
+        else:
+            if link.startswith("http") and slug in link:
+                base_url = link.rstrip("/")
+            else:
+                base_url = f"{S_TO}/serie/stream/{slug}"
+
+        response = _make_request(base_url)
+        final_url = response.url.rstrip("/")
+        soup = BeautifulSoup(response.content, "html.parser")
+
+        season_meta = soup.find("meta", itemprop="numberOfSeasons")
+        if season_meta:
+            number_of_seasons = int(season_meta["content"])
+        else:
+            season_links = soup.find_all("a", href=True)
+            max_season = 0
+            for link in season_links:
+                href = link["href"]
+                match = re.search(r"staffel-(\d+)", href)
+                if match:
+                    season_num = int(match.group(1))
+                    if season_num > max_season:
+                        max_season = season_num
+            number_of_seasons = max_season
+
+        all_episodes = {}
+        for season in range(1, number_of_seasons + 1):
+            season_url = f"{final_url}/staffel-{season}"
+            try:
+                season_response = _make_request(season_url)
+                season_soup = BeautifulSoup(season_response.content, "html.parser")
+                all_episodes[season] = _parse_season_episodes_details(season_soup, season)
+            except Exception as err:
+                logging.warning("Failed to get episode details for season %d: %s", season, err)
+                all_episodes[season] = []
+
+        _ANIME_DATA_CACHE[cache_key] = all_episodes
+        return all_episodes
+
+    except Exception as err:
+        logging.error("Failed to get season episode details for %s: %s", slug, err)
+        _ANIME_DATA_CACHE[cache_key] = {}
+        return {}
+
+
 def get_season_episode_count(slug: str, link: str = ANIWORLD_TO) -> Dict[int, int]:
     """
     Get episode count for each season of an anime with caching.

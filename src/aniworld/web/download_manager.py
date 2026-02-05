@@ -203,6 +203,7 @@ class DownloadQueueManager:
         provider: str,
         total_episodes: int,
         created_by: int = None,
+        episodes_config: dict = None,
     ) -> int:
         """Add a download to the queue"""
         with self._queue_lock:
@@ -215,6 +216,7 @@ class DownloadQueueManager:
                 "episode_urls": episode_urls,
                 "language": language,
                 "provider": provider,
+                "episodes_config": episodes_config,
                 "total_episodes": total_episodes,
                 "completed_episodes": 0,
                 "status": "queued",
@@ -346,13 +348,22 @@ class DownloadQueueManager:
                 return
 
             # Apply settings to anime objects
+            episodes_config = job.get("episodes_config", {})
+            
             for anime in anime_list:
                 anime.language = job["language"]
                 anime.provider = job["provider"]
                 anime.action = "Download"
                 for episode in anime.episode_list:
-                    episode._selected_language = job["language"]
-                    episode._selected_provider = job["provider"]
+                    # Check for per-episode configuration
+                    # We match by link (URL)
+                    if episodes_config and episode.link in episodes_config:
+                        config = episodes_config[episode.link]
+                        episode._selected_language = config.get("language", job["language"])
+                        episode._selected_provider = config.get("provider", job["provider"])
+                    else:
+                        episode._selected_language = job["language"]
+                        episode._selected_provider = job["provider"]
 
             # Calculate actual total episodes after processing URLs
             actual_total_episodes = sum(len(anime.episode_list) for anime in anime_list)

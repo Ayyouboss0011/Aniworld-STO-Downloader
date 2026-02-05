@@ -71,6 +71,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let selectedEpisodes = new Set();
     let progressInterval = null;
     let availableProviders = [];
+    let episodeLanguageSelections = {}; // Stores { episode_url: selected_language }
+    let languagePreferences = { aniworld: [], sto: [] };
 
     // Load version info and providers on page load
     loadVersionInfo();
@@ -78,6 +80,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Check for active downloads on page load
     checkQueueStatus();
     loadAvailableProviders();
+    loadLanguagePreferences();
 
     // Load popular and new anime on page load
     loadPopularAndNewAnime();
@@ -219,6 +222,20 @@ document.addEventListener('DOMContentLoaded', function() {
         populateProviderDropdown('aniworld.to');
     }
 
+    function loadLanguagePreferences() {
+        fetch('/api/settings/language-preferences')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    languagePreferences = {
+                        aniworld: data.aniworld || [],
+                        sto: data.sto || []
+                    };
+                }
+            })
+            .catch(err => console.error('Failed to load language preferences:', err));
+    }
+
     function populateProviderDropdown(site, availableList = null) {
         if (!providerSelect) return;
 
@@ -277,8 +294,22 @@ document.addEventListener('DOMContentLoaded', function() {
             languageSelect.appendChild(option);
         });
 
-        // Try to keep selection or select preferred
-        if (availableList) {
+        // Try to keep selection or select preferred based on preferences
+        const sitePrefs = site === 's.to' ? languagePreferences.sto : languagePreferences.aniworld;
+        let preferredLang = null;
+        
+        if (sitePrefs && sitePrefs.length > 0) {
+            for (const pref of sitePrefs) {
+                if (availableLanguages.includes(pref)) {
+                    preferredLang = pref;
+                    break;
+                }
+            }
+        }
+
+        if (preferredLang) {
+            languageSelect.value = preferredLang;
+        } else if (availableList) {
             if (availableList.includes(currentValue)) {
                 languageSelect.value = currentValue;
             } else if (availableList.includes('German Sub')) {
@@ -341,6 +372,16 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success) {
                 populateProviderDropdown(currentDownloadData.site, data.providers);
                 populateLanguageDropdown(currentDownloadData.site, data.languages);
+                
+                // Update language selections for all episodes
+                const episodesToVerify = [];
+                Object.values(availableEpisodes).flat().forEach(ep => {
+                    episodesToVerify.push(ep);
+                });
+                if (episodesToVerify.length > 0) {
+                    autoVerifyEpisodeLanguages(episodesToVerify);
+                }
+
                 showNotification(`Found ${data.providers.length} providers and ${data.languages.length} languages`, 'success');
             } else {
                 showNotification(data.error || 'Failed to check availability', 'error');
@@ -458,6 +499,7 @@ document.addEventListener('DOMContentLoaded', function() {
         currentDownloadData = { anime: animeTitle, episode: episodeTitle, url: episodeUrl, site: detectedSite };
         selectedEpisodes.clear();
         availableEpisodes = {};
+        episodeLanguageSelections = {};
 
         document.getElementById('download-anime-title').textContent = animeTitle;
         populateLanguageDropdown(detectedSite);
@@ -507,7 +549,61 @@ document.addEventListener('DOMContentLoaded', function() {
         selectedEpisodes.clear();
         availableEpisodes = {};
         availableMovies = [];
+        episodeLanguageSelections = {};
         if (trackSeriesCheckbox) trackSeriesCheckbox.checked = false;
+    }
+
+    function createLanguageBadges(container, languages, episodeUrl) {
+        container.innerHTML = '';
+        if (!languages || languages.length === 0) {
+            container.innerHTML = '<span style="font-size: 0.7rem; opacity: 0.5;">Loading...</span>';
+            return;
+        }
+
+        let selectedLang = episodeLanguageSelections[episodeUrl];
+        if (!selectedLang) {
+            // Check preferences
+            const sitePrefs = currentDownloadData.site === 's.to' ? languagePreferences.sto : languagePreferences.aniworld;
+            if (sitePrefs && sitePrefs.length > 0) {
+                for (const pref of sitePrefs) {
+                    if (languages.includes(pref)) {
+                        selectedLang = pref;
+                        break;
+                    }
+                }
+            }
+            
+            // Fallback to global dropdown if no preference matches
+            if (!selectedLang) {
+                selectedLang = languageSelect.value;
+            }
+            
+            // Final fallback to first available
+            if (languages.length > 0 && !languages.includes(selectedLang)) {
+                selectedLang = languages[0];
+            }
+            episodeLanguageSelections[episodeUrl] = selectedLang;
+        }
+
+        languages.forEach(lang => {
+            const badge = document.createElement('span');
+            badge.className = 'lang-badge';
+            if (lang === selectedLang) {
+                badge.classList.add('active');
+            }
+            const shortName = lang.replace('German', 'DE').replace('English', 'EN').replace('Dub', 'Dub').replace('Sub', 'Sub');
+            badge.textContent = shortName;
+            badge.title = lang;
+            
+            badge.addEventListener('click', (e) => {
+                e.stopPropagation();
+                episodeLanguageSelections[episodeUrl] = lang;
+                container.querySelectorAll('.lang-badge').forEach(b => b.classList.remove('active'));
+                badge.classList.add('active');
+            });
+            
+            container.appendChild(badge);
+        });
     }
 
     function renderEpisodeTree() {
@@ -517,12 +613,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         episodeTree.innerHTML = '';
+        const episodesToVerify = [];
+
         Object.keys(availableEpisodes).sort((a, b) => Number(a) - Number(b)).forEach(seasonNum => {
             const season = availableEpisodes[seasonNum];
             const seasonContainer = document.createElement('div');
             seasonContainer.className = 'season-container';
             const seasonHeader = document.createElement('div');
             seasonHeader.className = 'season-header';
+            seasonHeader.dataset.season = seasonNum;
             const seasonCheckbox = document.createElement('input');
             seasonCheckbox.type = 'checkbox';
             seasonCheckbox.className = 'season-checkbox';
@@ -539,25 +638,158 @@ document.addEventListener('DOMContentLoaded', function() {
             season.forEach(episode => {
                 const episodeItem = document.createElement('div');
                 episodeItem.className = 'episode-item-tree';
+                
+                const checkboxWrapper = document.createElement('div');
+                checkboxWrapper.className = 'episode-checkbox-wrapper';
+                
                 const episodeCheckbox = document.createElement('input');
                 episodeCheckbox.type = 'checkbox';
                 episodeCheckbox.className = 'episode-checkbox';
                 const episodeId = `${episode.season}-${episode.episode}`;
                 episodeCheckbox.id = `episode-${episodeId}`;
                 episodeCheckbox.addEventListener('change', () => toggleEpisode(episode, episodeCheckbox.checked));
+                
                 const episodeLabel = document.createElement('label');
                 episodeLabel.htmlFor = `episode-${episodeId}`;
                 episodeLabel.textContent = episode.title;
                 episodeLabel.className = 'episode-label';
-                episodeItem.appendChild(episodeCheckbox);
-                episodeItem.appendChild(episodeLabel);
+                
+                checkboxWrapper.appendChild(episodeCheckbox);
+                checkboxWrapper.appendChild(episodeLabel);
+                episodeItem.appendChild(checkboxWrapper);
+                
+                const langWrapper = document.createElement('div');
+                langWrapper.className = 'episode-lang-wrapper';
+                langWrapper.dataset.episodeUrl = episode.url;
+                
+                const langBadges = document.createElement('div');
+                langBadges.className = 'episode-lang-badges';
+                createLanguageBadges(langBadges, episode.languages, episode.url);
+                langWrapper.appendChild(langBadges);
+                
+                episodeItem.appendChild(langWrapper);
                 episodesContainer.appendChild(episodeItem);
+                
+                if (!episode.languages || episode.languages.length === 0) {
+                    episodesToVerify.push(episode);
+                }
             });
             seasonContainer.appendChild(seasonHeader);
             seasonContainer.appendChild(episodesContainer);
             episodeTree.appendChild(seasonContainer);
+            
+            updateSeasonLanguageBadges(seasonNum);
         });
         updateSelectedCount();
+
+        if (episodesToVerify.length > 0) {
+            autoVerifyEpisodeLanguages(episodesToVerify);
+        }
+    }
+
+    async function autoVerifyEpisodeLanguages(episodes) {
+        console.log(`Starting auto-verification for ${episodes.length} episodes`);
+        
+        const batchSize = 3;
+        for (let i = 0; i < episodes.length; i += batchSize) {
+            const batch = episodes.slice(i, i + batchSize);
+            await Promise.all(batch.map(async (ep) => {
+                try {
+                    const response = await fetch('/api/episode/providers', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ episode_url: ep.url })
+                    });
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        const langWrapper = document.querySelector(`.episode-lang-wrapper[data-episode-url="${ep.url}"]`);
+                        if (langWrapper) {
+                            let badgesContainer = langWrapper.querySelector('.episode-lang-badges');
+                            if (!badgesContainer) {
+                                badgesContainer = document.createElement('div');
+                                badgesContainer.className = 'episode-lang-badges';
+                                langWrapper.appendChild(badgesContainer);
+                            }
+                            createLanguageBadges(badgesContainer, data.languages, ep.url);
+                        }
+
+                        const epInCache = availableEpisodes[ep.season]?.find(e => e.episode === ep.episode);
+                        if (epInCache) {
+                            epInCache.languages = data.languages;
+                        }
+
+                        updateSeasonLanguageBadges(ep.season);
+
+                        if (i === 0 && ep === batch[0]) {
+                            populateProviderDropdown(currentDownloadData.site, data.providers);
+                            populateLanguageDropdown(currentDownloadData.site, data.languages);
+                        }
+                    }
+                } catch (err) {
+                    console.error(`Failed to auto-verify episode ${ep.season}x${ep.episode}:`, err);
+                }
+            }));
+            
+            if (i + batchSize < episodes.length) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        }
+    }
+
+    function updateSeasonLanguageBadges(seasonNum) {
+        const season = availableEpisodes[seasonNum];
+        if (!season) return;
+
+        const header = document.querySelector(`.season-header[data-season="${seasonNum}"]`);
+        if (!header) return;
+
+        let badgesContainer = header.querySelector('.season-lang-badges');
+        if (!badgesContainer) {
+            badgesContainer = document.createElement('div');
+            badgesContainer.className = 'season-lang-badges';
+            header.appendChild(badgesContainer);
+        }
+
+        const allLangs = new Set();
+        season.forEach(ep => {
+            if (ep.languages) {
+                ep.languages.forEach(l => allLangs.add(l));
+            }
+        });
+
+        if (allLangs.size === 0) {
+            badgesContainer.innerHTML = '';
+            return;
+        }
+
+        badgesContainer.innerHTML = '';
+        Array.from(allLangs).sort().forEach(lang => {
+            const badge = document.createElement('span');
+            badge.className = 'season-lang-badge';
+            const shortName = lang.replace('German', 'DE').replace('English', 'EN').replace('Dub', 'Dub').replace('Sub', 'Sub');
+            badge.textContent = shortName;
+            badge.title = `Select ${lang} for all episodes in Season ${seasonNum}`;
+
+            badge.addEventListener('click', (e) => {
+                e.stopPropagation();
+                season.forEach(ep => {
+                    if (ep.languages && ep.languages.includes(lang)) {
+                        episodeLanguageSelections[ep.url] = lang;
+                        const epLangWrapper = document.querySelector(`.episode-lang-wrapper[data-episode-url="${ep.url}"]`);
+                        if (epLangWrapper) {
+                            epLangWrapper.querySelectorAll('.lang-badge').forEach(b => {
+                                b.classList.toggle('active', b.title === lang);
+                            });
+                        }
+                    }
+                });
+                badgesContainer.querySelectorAll('.season-lang-badge').forEach(b => b.classList.remove('active'));
+                badge.classList.add('active');
+            });
+
+            badgesContainer.appendChild(badge);
+        });
     }
 
     function toggleSeason(seasonNum) {
@@ -631,7 +863,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (confirmDownload) {
             confirmDownload.disabled = (count === 0 && !isTrackerEnabled);
             
-            // Update button text based on what will happen
             if (count > 0) {
                 confirmDownload.textContent = 'Start Download';
             } else if (isTrackerEnabled) {
@@ -645,7 +876,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function startDownload() {
         const isTrackerEnabled = trackSeriesCheckbox && trackSeriesCheckbox.checked;
         const count = selectedEpisodes.size;
-        console.log(`Download/Tracker process started. Tracker enabled: ${isTrackerEnabled}, Selected episodes: ${count}`);
 
         if (!currentDownloadData || (count === 0 && !isTrackerEnabled)) {
             showNotification('Please select at least one episode to download or enable tracking', 'error');
@@ -656,13 +886,10 @@ document.addEventListener('DOMContentLoaded', function() {
         confirmDownload.textContent = count > 0 ? 'Starting...' : 'Adding...';
 
         if (count === 0 && isTrackerEnabled) {
-            console.log('Only tracker mode active. No episodes selected.');
-            // Only add tracker, no download
             addTrackerForCurrentSeries().then(success => {
-                console.log(`Tracker-only creation result: ${success ? 'Success' : 'Failed'}`);
                 if (success) hideDownloadModal();
                 confirmDownload.disabled = false;
-                updateSelectedCount(); // Reset button text/state
+                updateSelectedCount();
             });
             return;
         }
@@ -677,6 +904,18 @@ document.addEventListener('DOMContentLoaded', function() {
         const lang = languageSelect.value;
         const prov = providerSelect.value;
 
+        const episodesConfig = {};
+        selectedEpisodes.forEach(key => {
+            const [s, e] = key.split('-').map(Number);
+            const epData = availableEpisodes[s]?.find(item => item.season === s && item.episode === e);
+            if (epData) {
+                episodesConfig[epData.url] = {
+                    language: episodeLanguageSelections[epData.url] || lang,
+                    provider: prov
+                };
+            }
+        });
+
         fetch('/api/download', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -684,7 +923,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 episode_urls: selectedUrls,
                 language: lang,
                 provider: prov,
-                anime_title: currentDownloadData.anime
+                anime_title: currentDownloadData.anime,
+                episodes_config: episodesConfig
             })
         })
         .then(response => response.json())
@@ -710,14 +950,12 @@ document.addEventListener('DOMContentLoaded', function() {
     async function addTrackerForCurrentSeries() {
         if (!currentDownloadData) return false;
         
-        // Find max season and episode from availableEpisodes
         let maxS = 0, maxE = 0;
         const seasonNums = Object.keys(availableEpisodes).map(Number).sort((a, b) => b - a);
         if (seasonNums.length > 0) {
             maxS = seasonNums[0];
             const episodes = availableEpisodes[maxS];
             if (episodes && episodes.length > 0) {
-                // Find max episode number in that season
                 maxE = Math.max(...episodes.map(ep => ep.episode));
             }
         }
@@ -833,7 +1071,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const active = data.queue.active || [];
                 const completed = data.queue.completed || [];
                 
-                // Trackers update should also happen when queue updates
                 updateTrackersDisplay();
                 
                 if (downloadBadge) {
@@ -852,7 +1089,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     activeDownloads.style.display = 'none';
                     completedDownloads.style.display = 'none';
                     
-                    // Only stop interval if not on downloads page
                     if (!isDownloadsVisible && progressInterval) {
                         clearInterval(progressInterval);
                         progressInterval = null;

@@ -1877,9 +1877,9 @@ body[data-theme="dark"] .episode-progress-text {
     background: var(--modal-bg);
     border-radius: 12px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-    max-width: 500px;
-    width: 90%;
-    max-height: 80vh;
+    max-width: 800px;
+    width: 95%;
+    max-height: 85vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1971,13 +1971,15 @@ body[data-theme="dark"] .episode-progress-text {
     border-top: 1px solid var(--border-color);
     border-bottom: 1px solid var(--border-color);
     transition: border-color 0.3s ease;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
 }
 
 .setting-group {
     display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 0.75rem;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
 .setting-group:last-child {
@@ -2102,12 +2104,12 @@ body[data-theme="dark"] .episode-progress-text {
 }
 
 .episode-tree {
-    max-height: 250px;
+    max-height: 400px;
     overflow-y: auto;
     border: 1px solid var(--border-color);
-    border-radius: 6px;
+    border-radius: 8px;
     background: var(--tree-bg);
-    transition: background 0.3s ease, border-color 0.3s ease;
+    transition: all 0.3s ease;
 }
 
 .season-container {
@@ -2122,20 +2124,55 @@ body[data-theme="dark"] .episode-progress-text {
 .season-header {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
     background: var(--tree-header-bg);
     border-bottom: 1px solid var(--border-color);
     cursor: pointer;
-    transition: background-color 0.2s ease, border-color 0.3s ease;
+    transition: all 0.2s ease;
 }
 
 .season-header:hover {
     background: var(--tree-hover);
+    padding-left: 1.5rem;
 }
 
-.season-checkbox {
+.season-checkbox,
+.episode-checkbox {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--input-bg);
     cursor: pointer;
+    position: relative;
+    transition: all 0.3s ease;
+    margin: 0;
+}
+
+.season-checkbox:checked,
+.episode-checkbox:checked {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: #667eea;
+}
+
+.season-checkbox:checked::before,
+.episode-checkbox:checked::before {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.season-checkbox:hover,
+.episode-checkbox:hover {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .season-label {
@@ -2155,10 +2192,11 @@ body[data-theme="dark"] .episode-progress-text {
 .episode-item-tree {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.5rem 1rem 0.5rem 2.5rem;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1.25rem 0.75rem 3rem;
     border-bottom: 1px solid var(--tree-header-bg);
-    transition: background-color 0.2s ease, border-color 0.3s ease;
+    transition: all 0.2s ease;
 }
 
 .episode-item-tree:last-child {
@@ -2166,20 +2204,95 @@ body[data-theme="dark"] .episode-progress-text {
 }
 
 .episode-item-tree:hover {
-    background: var(--tree-bg);
+    background: var(--tree-hover);
+    padding-left: 3.25rem;
 }
 
-.episode-checkbox {
-    cursor: pointer;
+.episode-checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
 }
 
 .episode-label {
     color: var(--text-secondary);
     cursor: pointer;
     user-select: none;
-    flex: 1;
     font-size: 0.9rem;
     transition: color 0.3s ease;
+}
+
+.episode-lang-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.episode-lang-badges {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.lang-badge {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.lang-badge:hover {
+    background: var(--tree-hover);
+    border-color: #4299e1;
+}
+
+.lang-badge.active {
+    background: #4299e1;
+    color: white;
+    border-color: #3182ce;
+    font-weight: 600;
+}
+
+.season-lang-badges {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: 1rem;
+}
+
+.season-lang-badge {
+    background: var(--bg-primary);
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 4px;
+    white-space: nowrap;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.season-lang-badge:hover {
+    background: var(--tree-hover);
+    color: var(--text-secondary);
+    border-color: #4299e1;
+}
+
+.season-lang-badge.active {
+    background: #667eea;
+    color: white;
+    border-color: #5a67d8;
+    font-weight: 600;
+}
+
+.episode-lang-select {
+    display: none;
 }
 
 /* Button Styles */
