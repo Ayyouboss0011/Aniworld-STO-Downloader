@@ -15,6 +15,7 @@ Aniworld-STO-Downloader is a powerful, all-in-one tool for downloading and strea
 ```bash
 git clone https://github.com/Ayyouboss0011/Aniworld-STO-Downloader.git
 cd Aniworld-STO-Downloader
+cp .env.example .env # Konfiguriere deine Pfade in der .env
 docker-compose up -d --build
 ```
 Then open [http://localhost:3005](http://localhost:3005)
@@ -86,22 +87,48 @@ Never miss an episode again. With the **Tracking System**, you can mark any seri
 
 ### Docker (Recommended)
 
-Docker ensures all dependencies (like `mpv`, `yt-dlp`) are correctly configured.
+Docker stellt sicher, dass alle Abhängigkeiten (wie `mpv`, `yt-dlp`) korrekt konfiguriert sind. 
 
+#### 1. Konfiguration (.env)
+Bevor du die Container startest, musst du die `.env` Datei konfigurieren. Diese speichert deine Pfade und Einstellungen dauerhaft, auch bei Updates.
+
+```bash
+cp .env.example .env
+nano .env # Oder ein Editor deiner Wahl
+```
+
+Wichtige Variablen:
+- `DOWNLOAD_DIR`: Der Pfad auf deinem Host, wo die Dateien gespeichert werden sollen (z.B. `/home/user/media/anime`).
+- `WEB_PORT`: Der Port für das Web-Interface (Standard: `3005`).
+
+#### 2. Starten (Standard)
+Für ein normales Setup ohne VPN:
+```bash
+docker-compose up -d --build
+```
+
+#### 3. Starten mit VPN (Gluetun)
+Wenn du einen VPN nutzen möchtest, verwende die `docker-compose.vpn.yml`. Diese nutzt **Gluetun**, um den gesamten Traffic von Aniworld durch einen VPN-Tunnel zu leiten.
+
+1. Trage deine VPN-Zugangsdaten in die `.env` ein (Provider, User, Passwort/Key).
+2. Starte das Setup:
+```bash
+docker-compose -f docker-compose.vpn.yml up -d --build
+```
+
+*Hinweis: Im VPN-Modus wird das Web-Interface über den Gluetun-Container exponiert. Alle Anfragen laufen sicher durch den Tunnel.*
+
+#### Docker-Compose Struktur (Standard)
 ```yaml
 services:
   aniworld:
     container_name: aniworld-downloader
     build: .
     ports:
-      - "3005:3005"
+      - "${WEB_PORT}:${WEB_PORT}"
     volumes:
-      - ./downloads:/app/downloads  # Where your media goes
-      - ./data:/app/data            # Database and config
-    environment:
-      - PUID=1000
-      - PGID=1000
-    command: ["aniworld", "--web-ui", "--web-port", "3005", "--no-browser", "--web-expose", "--output-dir", "/app/downloads"]
+      - ${DOWNLOAD_DIR}:/app/downloads
+      - aniworld-data:/app/data
     restart: unless-stopped
 ```
 
