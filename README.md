@@ -2,13 +2,13 @@
 
 # lankabeltv
 
-lankabeltv is a powerful tool for downloading and streaming anime movies and series from aniworld.to, as well as regular movies and TV shows from s.to. It features a **modern Web Interface** for easy management, while still offering a robust command-line interface for advanced users. Currently available for Windows, macOS and Linux, it supports LoadX, VOE, Vidmoly, Filemoon, Luluvdo, Doodstream, Vidoza, SpeedFiles and Streamtape.
+lankabeltv is a powerful, all-in-one tool for downloading and streaming anime from **aniworld.to** and movies/TV shows from **s.to**. It features a **modern Web Interface** for effortless management, a robust CLI for power users, and an automated tracking system to keep your library up to date.
 
 [![License](https://img.shields.io/pypi/l/aniworld?label=License&color=blue)](LICENSE)
 
 ![lankabeltv - Demo](readme_thumbnail.png)
 
-## TL;DR - Quick Start
+## 🚀 Quick Start
 
 **Using Docker (Recommended):**
 
@@ -17,288 +17,166 @@ git clone https://github.com/Ayyouboss0011/Aniworld-STO-Downloader.git
 cd Aniworld-STO-Downloader
 docker-compose up -d --build
 ```
+Then open [http://localhost:3005](http://localhost:3005)
 
-Then open http://localhost:3005
-
-**Using Python (No Docker):**
+**Using Python (Direct):**
 
 ```bash
 pip install --upgrade git+https://github.com/Ayyouboss0011/Aniworld-STO-Downloader.git@next#egg=aniworld
 aniworld --web-ui
 ```
 
-## Features
+---
 
-- **Modern Web Interface**: Easy anime searching, downloading, and queue management
-- **Docker Support**: Simple deployment with Docker and Docker Compose
-- **Download Episodes or Seasons**: Effortlessly download individual episodes or entire seasons
-- **Stream Instantly**: Watch episodes directly using the integrated mpv player
-- **Auto-Next Playback**: Enjoy uninterrupted viewing with automatic transitions
-- **Multiple Providers**: Access a variety of streaming providers on aniworld.to and s.to
-- **Language Preferences**: Switch between German Dub, English Sub, or German Sub
-- **Aniskip Support**: Automatically skip intros and outros
-- **Group Watching**: Synchronized sessions with Syncplay
+## ✨ Features
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-## Supported Providers
-
-lankabeltv supports the following providers:
-
-- LoadX
-- VOE
-- Vidmoly
-- Filemoon
-- Luluvdo
-- Doodstream
-- Vidoza
-- SpeedFiles
-- Streamtape
+- **🌐 Modern Web Interface**: Search, discover, and manage downloads via a sleek dashboard.
+- **🤖 Automated Tracking**: "Track" your favorite series; the system checks for new episodes hourly and downloads them automatically.
+- **🎬 Instant Streaming**: Watch content directly in the integrated **mpv** player with high-quality shaders.
+- **📦 Massive Provider Support**: Works with VOE, Vidmoly, Filemoon, Vidoza, Streamtape, and many more.
+- **📺 S.to & AniWorld Integration**: Seamlessly search across both platforms simultaneously.
+- **⏭️ Aniskip Integration**: Automatically skip intros and outros for a better viewing experience.
+- **👥 Syncplay Support**: Watch together with friends in perfect synchronization.
+- **🐳 Docker Ready**: Easily deployable with Docker and Docker Compose.
+- **🛠️ Flexible CLI**: Full control via command-line for automation and scripting.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Usage Modes
+---
 
-lankabeltv offers versatile usage modes, prioritizing the Web Interface for the best experience:
+## 🖥️ Web Interface
 
-1. **Web Interface**: Modern web UI for easy searching, downloading, and queue management
-2. **Interactive Menu**: CLI menu to select and manage downloads
-3. **Command-Line Arguments**: Direct execution for scripts and automation
-4. **Python Library**: Integration into Python projects
+The Web UI is the heart of lankabeltv, providing a user-friendly way to interact with your media.
 
-### Web Interface
+- **Discovery**: See popular and newly added anime right on the home screen.
+- **Unified Search**: Search for titles across both AniWorld and S.to at the same time.
+- **Visual Selector**: Easily pick seasons and episodes via an intuitive tree view.
+- **Download Manager**: Real-time progress tracking and queue management.
+- **Tracker Dashboard**: Manage your tracked series and see when the next check occurs.
+- **Multi-User & Auth**: Optional authentication for secure remote access.
 
-Launch the modern web interface for easy searching, downloading, and queue management.
+### Launching the Web UI
 
-If installed locally:
 ```bash
+# Basic launch
 aniworld --web-ui
-```
 
-The web interface provides:
-
-- Modern Search: Search anime across aniworld.to and s.to
-- Episode Selection: Visual episode picker
-- Download Queue: Real-time progress tracking
-- User Authentication: Optional multi-user support
-- Settings Management: Configure providers and languages
-
-#### Web Interface Options
-
-```bash
-# Expose to network (accessible from other devices)
-aniworld --web-ui --web-expose
-
-# Enable authentication for multi-user support
-aniworld --web-ui --enable-web-auth
-
-# Custom port and disable browser auto-open
-aniworld --web-ui --web-port 3005 --no-browser
-```
-
-### Menu Example
-
-To start the interactive CLI menu:
-
-```bash
-aniworld
+# Advanced options
+aniworld --web-ui --web-port 3005 --web-expose --enable-web-auth
 ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Installation
+---
 
-### Prerequisites
+## 📡 Automated Tracking
 
-- **Docker** (Recommended)
-- OR **[Python 3.9+](https://www.python.org/downloads/)** and **[Git](https://git-scm.com/downloads)**
+Never miss an episode again. With the **Tracking System**, you can mark any series to be monitored.
 
-### Docker Deployment (Recommended)
+1.  **Add a Tracker**: Find a series in the Web UI and check "Track for new episodes" when starting a download.
+2.  **Automatic Checks**: The system scans for new episodes every hour.
+3.  **Auto-Download**: Once a new episode is released on the provider, it's added to your queue and downloaded automatically.
+4.  **Manage**: View and trigger manual scans from the "Downloads" tab under "Active Trackers".
 
-lankabeltv is best deployed using Docker.
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-#### Using Docker Compose
+---
 
-1.  Create a `docker-compose.yml` (or use the one in the repository):
+## 🛠️ Installation & Deployment
 
-    ```yaml
-    services:
-      aniworld:
-        container_name: aniworld-downloader
-        build: .
-        image: aniworld-new
-        command: ["aniworld", "--web-ui", "--web-port", "3005", "--no-browser", "--web-expose", "--output-dir", "/app/downloads"]
-        ports:
-          - "3005:3005"
-        volumes:
-          - ./downloads:/app/downloads
-          - ./data:/app/data
-        restart: unless-stopped
-    ```
+### Docker (Recommended)
 
-2.  Build and run the container:
-    ```bash
-    docker-compose up -d --build
-    ```
+Docker ensures all dependencies (like `mpv`, `yt-dlp`) are correctly configured.
 
-#### Using Docker Directly
-
-First, build the image:
-```bash
-docker build -t aniworld-new .
+```yaml
+services:
+  aniworld:
+    container_name: aniworld-downloader
+    build: .
+    ports:
+      - "3005:3005"
+    volumes:
+      - ./downloads:/app/downloads  # Where your media goes
+      - ./data:/app/data            # Database and config
+    environment:
+      - PUID=1000
+      - PGID=1000
+    command: ["aniworld", "--web-ui", "--web-port", "3005", "--no-browser", "--web-expose", "--output-dir", "/app/downloads"]
+    restart: unless-stopped
 ```
 
-Then run the container:
-```bash
-docker run -d \
-  --name aniworld-downloader \
-  -p 3005:3005 \
-  -v $(pwd)/downloads:/app/downloads \
-  -v $(pwd)/data:/app/data \
-  aniworld-new \
-  aniworld --web-ui --web-port 3005 --no-browser --web-expose --output-dir /app/downloads
-```
+### Manual Installation
 
-### Installation from Source (Python)
-
-If you prefer to run it without Docker, you can install the latest version directly from GitHub.
+Requires **Python 3.9+** and **Git**.
 
 ```bash
 pip install --upgrade git+https://github.com/Ayyouboss0011/Aniworld-STO-Downloader.git@next#egg=aniworld
 ```
 
-To update later, just run the command again.
-
-#### Local Development Setup
-
-1. Clone the repository:
-    ```bash
-    git clone https://github.com/Ayyouboss0011/Aniworld-STO-Downloader aniworld
-    ```
-
-2. Install in editable mode:
-    ```bash
-    pip install -U -e ./aniworld
-    ```
+*Note: For streaming features, ensure `mpv` is installed on your system.*
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Command-Line Arguments
+---
 
-For advanced users, lankabeltv provides a variety of command-line options.
+## ⌨️ Command-Line Power
 
-#### Example: Download a Single Episode
+lankabeltv remains a powerful CLI tool for automation.
 
-```bash
-aniworld --episode https://aniworld.to/anime/stream/demon-slayer-kimetsu-no-yaiba/staffel-1/episode-1
-```
-
-#### Example: Watch with Aniskip
-
-```bash
-aniworld --episode https://aniworld.to/anime/stream/demon-slayer-kimetsu-no-yaiba/staffel-1/episode-1 --action Watch --aniskip
-```
-
-#### Example: Syncplay with Friends
-
-```bash
-aniworld --episode https://aniworld.to/anime/stream/demon-slayer-kimetsu-no-yaiba/staffel-1/episode-1 --action Syncplay --keep-watching --syncplay-password beans
-```
+| Feature | Command Example |
+| :--- | :--- |
+| **Interactive Menu** | `aniworld` |
+| **Download Episode** | `aniworld --episode [URL] --output-dir ./my-anime` |
+| **Watch Instantly** | `aniworld --episode [URL] --action Watch --aniskip` |
+| **Syncplay** | `aniworld --episode [URL] --action Syncplay --syncplay-password secret` |
+| **Anime4K (Upscaling)**| `aniworld --anime4k High` |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Advanced Features
+---
 
-### Anime4K Setup
+## 📚 Library Usage (Python API)
 
-Enhance your anime viewing experience with Anime4K (CLI/MPV only).
-
-- **High-Performance GPUs**: `aniworld --anime4k High`
-- **Low-Performance GPUs**: `aniworld --anime4k Low`
-- **Uninstall**: `aniworld --anime4k Remove`
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-## Library Usage
-
-You can use lankabeltv as a Python library:
+Integrate lankabeltv into your own scripts:
 
 ```python
 from aniworld.models import Anime, Episode
 
-anime = Anime(
-  episode_list=[
-    Episode(
-      slug="food-wars-shokugeki-no-sma",
-      season=1,
-      episode=5
-    )
-  ]
-)
+# Define an episode
+ep = Episode(slug="demon-slayer", season=1, episode=1)
 
-for episode in anime:
-  print(f"Direct Link: {episode.get_direct_link('VOE', 'German Sub')}")
+# Get direct streaming links
+link = ep.get_direct_link(provider="VOE", language="German Sub")
+print(f"Watch here: {link}")
 ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Development
+---
+
+## 🤝 Support & Development
+
+- **Discord**: Join us on Discord (`phoenixthrush` or `tmaster067`)
+- **Issues**: [Report a bug](https://github.com/Ayyouboss0011/Aniworld-STO-Downloader/issues)
+- **Docs**: [Full Documentation](https://www.phoenixthrush.com/lankabeltv-Docs/)
+
+### Contribution
 
 ```bash
-# Clone and install
 git clone https://github.com/Ayyouboss0011/Aniworld-STO-Downloader.git
 cd Aniworld-STO-Downloader
 pip install -e .
-
-# Install dev dependencies
-pip install . ruff pylint pytest
-
-# Run tests
 pytest tests/
 ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Troubleshooting
+---
 
-### ARM-based Systems
-Use the amd64 Python version if you encounter issues with the curses module on ARM systems.
+## ⚖️ Legal & License
 
-### Provider Failures
-If a provider fails, try a different one using `--provider` or report the issue on GitHub.
+**Disclaimer**: lankabeltv is a scraper designed to facilitate access to publicly available content. It does not host any files. Users are responsible for complying with local copyright laws.
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-## Documentation
-
-Visit the official documentation: [lankabeltv-Docs](https://www.phoenixthrush.com/lankabeltv-Docs/)
+Licensed under the **MIT License**.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-## Credits
-
-- **[mpv](https://github.com/mpv-player/mpv.git)**
-- **[yt-dlp](https://github.com/yt-dlp/yt-dlp.git)**
-- **[Syncplay](https://github.com/Syncplay/syncplay.git)**
-- **[Anime4K](https://github.com/bloc97/Anime4K)**
-- **[Aniskip](https://api.aniskip.com/api-docs)**
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-## Support
-
-- **GitHub Issues**: [Report bugs](https://github.com/Ayyouboss0011/Aniworld-STO-Downloader/issues)
-- **Email**: contact@phoenixthrush.com
-- **Discord**: `phoenixthrush` or `tmaster067`
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-## Legal Disclaimer
-
-lankabeltv is for accessing publicly available online content. It does not host any files. Please respect copyright laws in your jurisdiction.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-## License
-
-This project is licensed under the **[MIT License](LICENSE)**.
