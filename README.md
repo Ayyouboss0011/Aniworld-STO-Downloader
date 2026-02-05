@@ -15,7 +15,7 @@ Aniworld-STO-Downloader is a powerful, all-in-one tool for downloading and strea
 ```bash
 git clone https://github.com/Ayyouboss0011/Aniworld-STO-Downloader.git
 cd Aniworld-STO-Downloader
-cp .env.example .env # Konfiguriere deine Pfade in der .env
+cp .env.example .env # Configure your paths in .env
 docker-compose up -d --build
 ```
 Then open [http://localhost:3005](http://localhost:3005)
@@ -87,38 +87,38 @@ Never miss an episode again. With the **Tracking System**, you can mark any seri
 
 ### Docker (Recommended)
 
-Docker stellt sicher, dass alle Abhängigkeiten (wie `mpv`, `yt-dlp`) korrekt konfiguriert sind. 
+Docker ensures all dependencies (like `mpv`, `yt-dlp`) are correctly configured.
 
-#### 1. Konfiguration (.env)
-Bevor du die Container startest, musst du die `.env` Datei konfigurieren. Diese speichert deine Pfade und Einstellungen dauerhaft, auch bei Updates.
+#### 1. Configuration (.env)
+Before starting the containers, you must configure the `.env` file. This stores your paths and settings permanently, even during updates.
 
 ```bash
 cp .env.example .env
-nano .env # Oder ein Editor deiner Wahl
+nano .env # Or any editor of your choice
 ```
 
-Wichtige Variablen:
-- `DOWNLOAD_DIR`: Der Pfad auf deinem Host, wo die Dateien gespeichert werden sollen (z.B. `/home/user/media/anime`).
-- `WEB_PORT`: Der Port für das Web-Interface (Standard: `3005`).
+Key variables:
+- `DOWNLOAD_DIR`: The path on your host where files should be saved (e.g., `/home/user/media/anime`).
+- `WEB_PORT`: The port for the Web UI (Default: `3005`).
 
-#### 2. Starten (Standard)
-Für ein normales Setup ohne VPN:
+#### 2. Start (Standard)
+For a normal setup without VPN:
 ```bash
 docker-compose up -d --build
 ```
 
-#### 3. Starten mit VPN (Gluetun)
-Wenn du einen VPN nutzen möchtest, verwende die `docker-compose.vpn.yml`. Diese nutzt **Gluetun**, um den gesamten Traffic von Aniworld durch einen VPN-Tunnel zu leiten.
+#### 3. Start with VPN (Gluetun)
+If you want to use a VPN, use `docker-compose.vpn.yml`. This uses **Gluetun** to route all Aniworld traffic through a VPN tunnel.
 
-1. Trage deine VPN-Zugangsdaten in die `.env` ein (Provider, User, Passwort/Key).
-2. Starte das Setup:
+1. Enter your VPN credentials in `.env` (Provider, User, Password/Key).
+2. Start the setup:
 ```bash
 docker-compose -f docker-compose.vpn.yml up -d --build
 ```
 
-*Hinweis: Im VPN-Modus wird das Web-Interface über den Gluetun-Container exponiert. Alle Anfragen laufen sicher durch den Tunnel.*
+*Note: In VPN mode, the Web UI is exposed through the Gluetun container. All traffic flows securely through the tunnel.*
 
-#### Docker-Compose Struktur (Standard)
+#### Docker-Compose Structure (Standard)
 ```yaml
 services:
   aniworld:
