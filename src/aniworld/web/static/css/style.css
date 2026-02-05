@@ -1908,6 +1908,157 @@ body[data-theme="dark"] .episode-progress-text {
     transition: color 0.3s ease;
 }
 
+/* Episode List in Queue */
+.queue-item.open .toggle-icon {
+    transform: rotate(90deg);
+}
+
+.toggle-icon {
+    transition: transform 0.2s ease;
+    margin-right: 8px;
+    font-size: 0.8rem;
+}
+
+.queue-item-episodes {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.job-episodes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.job-episode-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+.job-episode-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ep-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.ep-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ep-name {
+    font-weight: 500;
+}
+
+.ep-stats {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.ep-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.reorder-btn, .ep-stop-btn {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 4px;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.reorder-btn:hover:not(:disabled) {
+    color: var(--primary-color, #4299e1);
+    background: rgba(66, 153, 225, 0.1);
+}
+
+.ep-stop-btn:hover {
+    color: #f56565;
+    background: rgba(245, 101, 101, 0.1);
+}
+
+.reorder-btn:disabled {
+    opacity: 0.2;
+    cursor: not-allowed;
+}
+
+.ep-status-text {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    min-width: 70px;
+    text-align: center;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.ep-status-text.downloading { color: #48bb78; background: rgba(72, 187, 120, 0.15); }
+.ep-status-text.queued { color: #ed8936; background: rgba(237, 137, 54, 0.15); }
+.ep-status-text.completed { color: #4299e1; background: rgba(66, 153, 225, 0.15); }
+.ep-status-text.failed { color: #f56565; background: rgba(245, 101, 101, 0.15); }
+
+.ep-progress-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.ep-progress-bar {
+    flex: 1;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.ep-progress-fill {
+    height: 100%;
+    background: #48bb78;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.ep-progress-fill.completed { background: #4299e1; }
+.ep-progress-fill.queued { background: #ed8936; }
+.ep-progress-fill.failed { background: #f56565; }
+
+.ep-progress-text {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    min-width: 35px;
+    text-align: right;
+}
+
 /* Loading Section */
 .loading-section {
     text-align: center;

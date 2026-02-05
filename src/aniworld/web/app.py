@@ -858,6 +858,56 @@ class WebApp:
                     {"success": False, "error": f"Failed to start download: {str(err)}"}
                 ), 500
 
+        @self.app.route("/api/download/<int:queue_id>/episodes", methods=["GET"])
+        @self._require_api_auth
+        def api_get_download_episodes(queue_id):
+            """Get detailed episodes for a download job."""
+            try:
+                episodes = self.download_manager.get_job_episodes(queue_id)
+                if episodes is not None:
+                    return jsonify({"success": True, "episodes": episodes})
+                else:
+                    return jsonify({"success": False, "error": "Download not found"}), 404
+            except Exception as e:
+                logging.error(f"Failed to get episodes for job {queue_id}: {e}")
+                return jsonify({"success": False, "error": str(e)}), 500
+
+        @self.app.route("/api/download/<int:queue_id>/reorder", methods=["POST"])
+        @self._require_api_auth
+        def api_reorder_download_episodes(queue_id):
+            """Reorder episodes for a download job."""
+            try:
+                data = request.get_json()
+                new_order_urls = data.get("episode_urls")
+                if not new_order_urls:
+                    return jsonify({"success": False, "error": "New order (URLs) required"}), 400
+
+                if self.download_manager.reorder_episodes(queue_id, new_order_urls):
+                    return jsonify({"success": True, "message": "Episodes reordered successfully"})
+                else:
+                    return jsonify({"success": False, "error": "Failed to reorder (check if job is queued and URLs are valid)"}), 400
+            except Exception as e:
+                logging.error(f"Failed to reorder episodes for job {queue_id}: {e}")
+                return jsonify({"success": False, "error": str(e)}), 500
+
+        @self.app.route("/api/download/<int:queue_id>/episode/stop", methods=["POST"])
+        @self._require_api_auth
+        def api_stop_download_episode(queue_id):
+            """Stop/remove a single episode from a download job."""
+            try:
+                data = request.get_json()
+                ep_url = data.get("episode_url")
+                if not ep_url:
+                    return jsonify({"success": False, "error": "Episode URL required"}), 400
+
+                if self.download_manager.stop_episode(queue_id, ep_url):
+                    return jsonify({"success": True, "message": "Episode stopped/removed successfully"})
+                else:
+                    return jsonify({"success": False, "error": "Failed to stop episode"}), 400
+            except Exception as e:
+                logging.error(f"Failed to stop episode for job {queue_id}: {e}")
+                return jsonify({"success": False, "error": str(e)}), 500
+
         @self.app.route("/api/download-path", methods=["GET", "POST"])
         @self._require_api_auth
         def api_download_path():

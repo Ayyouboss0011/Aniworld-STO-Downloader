@@ -110,6 +110,29 @@ const API = {
     async getPopularNew() {
         const res = await fetch('/api/popular-new');
         return await res.json();
+    },
+
+    async getJobEpisodes(queueId) {
+        const res = await fetch(`/api/download/${queueId}/episodes`);
+        return await res.json();
+    },
+
+    async reorderEpisodes(queueId, episodeUrls) {
+        const res = await fetch(`/api/download/${queueId}/reorder`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ episode_urls: episodeUrls })
+        });
+        return await res.json();
+    },
+
+    async stopEpisode(queueId, episodeUrl) {
+        const res = await fetch(`/api/download/${queueId}/episode/stop`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ episode_url: episodeUrl })
+        });
+        return await res.json();
     }
 };
 

@@ -89,16 +89,24 @@ export const Queue = {
 
     updateQueueList(container, items, type) {
         if (!container) return;
+        
+        // Preserve open states
+        const openJobs = Array.from(container.querySelectorAll('.queue-item.open')).map(el => el.dataset.id);
+
         container.innerHTML = '';
         items.forEach(item => {
             const qItem = document.createElement('div');
-            qItem.className = 'queue-item';
+            qItem.className = 'queue-item' + (openJobs.includes(item.id.toString()) ? ' open' : '');
+            qItem.dataset.id = item.id;
             const prog = Math.min(100, item.progress_percentage || 0);
             const isCompleted = item.status === 'completed' || item.status === 'failed';
             
             qItem.innerHTML = `
                 <div class="queue-item-header">
-                    <div class="queue-item-title">${escapeHtml(item.anime_title)}</div>
+                    <div class="queue-item-title-wrapper" style="flex: 1; cursor: pointer;">
+                        <i class="fas fa-chevron-right toggle-icon"></i>
+                        <span class="queue-item-title">${escapeHtml(item.anime_title)}</span>
+                    </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <div class="queue-item-status ${item.status}">${item.status}</div>
                         ${!isCompleted ? `<button class="stop-download-btn" data-id="${item.id}" title="Stop Download"><i class="fas fa-stop"></i></button>` : ''}
@@ -110,7 +118,20 @@ export const Queue = {
                     <div class="queue-progress-text">${prog.toFixed(1)}% | ${item.completed_episodes}/${item.total_episodes} eps</div>
                 </div>
                 <div class="queue-item-details">${escapeHtml(item.current_episode || '')}</div>
+                <div class="queue-item-episodes" id="episodes-${item.id}" style="${openJobs.includes(item.id.toString()) ? 'display: block;' : 'display: none;'}">
+                    <div class="loading-spinner-small"></div>
+                </div>
             `;
+
+            // Toggle logic
+            qItem.querySelector('.queue-item-title-wrapper').addEventListener('click', () => {
+                const epDiv = qItem.querySelector('.queue-item-episodes');
+                const isNowOpen = qItem.classList.toggle('open');
+                epDiv.style.display = isNowOpen ? 'block' : 'none';
+                if (isNowOpen) {
+                    this.loadJobEpisodes(item.id, epDiv, item.status);
+                }
+            });
 
             if (!isCompleted) {
                 qItem.querySelector('.stop-download-btn')?.addEventListener('click', () => {
@@ -123,7 +144,120 @@ export const Queue = {
                 });
             }
             container.appendChild(qItem);
+            
+            // Re-load episodes if it was open
+            if (openJobs.includes(item.id.toString())) {
+                this.loadJobEpisodes(item.id, qItem.querySelector('.queue-item-episodes'), item.status);
+            }
         });
+    },
+
+    async loadJobEpisodes(queueId, container, jobStatus) {
+        try {
+            const data = await API.getJobEpisodes(queueId);
+            if (!data.success) {
+                container.innerHTML = '<div class="error-text">Failed to load episodes</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            const epList = document.createElement('div');
+            epList.className = 'job-episodes-list';
+            
+            data.episodes.forEach((ep, index) => {
+                const epItem = document.createElement('div');
+                epItem.className = 'job-episode-item';
+                epItem.dataset.url = ep.url;
+                const canReorderThis = ep.status === 'queued';
+                const isDownloading = ep.status === 'downloading';
+                const isFinished = ep.status === 'completed' || ep.status === 'failed' || ep.status === 'cancelled';
+                
+                epItem.innerHTML = `
+                    <div class="ep-info-row">
+                        <div class="ep-info">
+                            <span class="ep-name">${escapeHtml(ep.name)}</span>
+                            ${isDownloading ? `<span class="ep-stats">${escapeHtml(ep.speed || '')} | ${escapeHtml(ep.eta || '')}</span>` : ''}
+                        </div>
+                        <div class="ep-actions">
+                            ${canReorderThis ? `
+                                <button class="reorder-btn move-up" title="Move Up" ${index === 0 ? 'disabled' : ''}><i class="fas fa-arrow-up"></i></button>
+                                <button class="reorder-btn move-down" title="Move Down" ${index === data.episodes.length - 1 ? 'disabled' : ''}><i class="fas fa-arrow-down"></i></button>
+                            ` : ''}
+                            <span class="ep-status-text ${ep.status}">${ep.status}</span>
+                            ${!isFinished ? `
+                                <button class="ep-stop-btn" title="Stop Episode"><i class="fas fa-times"></i></button>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div class="ep-progress-container">
+                        <div class="ep-progress-bar">
+                            <div class="ep-progress-fill ${ep.status}" style="width: ${ep.progress}%"></div>
+                        </div>
+                        <span class="ep-progress-text">${ep.progress.toFixed(1)}%</span>
+                    </div>
+                `;
+
+                if (canReorderThis) {
+                    epItem.querySelector('.move-up')?.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.moveEpisode(queueId, index, -1, container, jobStatus);
+                    });
+                    epItem.querySelector('.move-down')?.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.moveEpisode(queueId, index, 1, container, jobStatus);
+                    });
+                }
+                
+                epItem.querySelector('.ep-stop-btn')?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.executeStopEpisode(queueId, ep.url, container, jobStatus);
+                });
+
+                epList.appendChild(epItem);
+            });
+
+            container.appendChild(epList);
+        } catch (err) {
+            console.error('Failed to load job episodes:', err);
+            container.innerHTML = '<div class="error-text">Error loading episodes</div>';
+        }
+    },
+
+    async moveEpisode(queueId, index, direction, container, jobStatus) {
+        try {
+            const data = await API.getJobEpisodes(queueId);
+            if (!data.success) return;
+
+            const urls = data.episodes.map(ep => ep.url);
+            const newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= urls.length) return;
+
+            // Swap
+            [urls[index], urls[newIndex]] = [urls[newIndex], urls[index]];
+
+            const res = await API.reorderEpisodes(queueId, urls);
+            if (res.success) {
+                this.loadJobEpisodes(queueId, container, jobStatus);
+            } else {
+                showNotification(res.error || 'Failed to reorder episodes', 'error');
+            }
+        } catch (err) {
+            console.error('Move error:', err);
+        }
+    },
+
+    async executeStopEpisode(queueId, epUrl, container, jobStatus) {
+        try {
+            const res = await API.stopEpisode(queueId, epUrl);
+            if (res.success) {
+                showNotification('Episode removed/stopped', 'success');
+                this.loadJobEpisodes(queueId, container, jobStatus);
+            } else {
+                showNotification(res.error || 'Failed to stop episode', 'error');
+            }
+        } catch (err) {
+            console.error('Stop episode error:', err);
+        }
     },
 
     async executeDelete(queueId) {

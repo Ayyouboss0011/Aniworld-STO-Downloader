@@ -206,6 +206,29 @@ class DownloadQueueManager:
         episodes_config: dict = None,
     ) -> int:
         """Add a download to the queue"""
+        # Pre-process episodes to have detailed list
+        episodes = []
+        for url in episode_urls:
+            # Try to extract season/episode from URL for better display
+            ep_name = url.split("/")[-1]
+            if "staffel-" in url and "episode-" in url:
+                try:
+                    parts = url.split("/")
+                    s_num = next(p.split("-")[1] for p in parts if "staffel-" in p)
+                    e_num = next(p.split("-")[1] for p in parts if "episode-" in p)
+                    ep_name = f"S{s_num} E{e_num}"
+                except:
+                    pass
+            
+            episodes.append({
+                "url": url,
+                "name": ep_name,
+                "status": "queued",
+                "progress": 0.0,
+                "speed": "",
+                "eta": ""
+            })
+
         with self._queue_lock:
             queue_id = self._next_id
             self._next_id += 1
@@ -213,7 +236,8 @@ class DownloadQueueManager:
             download_job = {
                 "id": queue_id,
                 "anime_title": anime_title,
-                "episode_urls": episode_urls,
+                "episode_urls": episode_urls, # Keep for backward compatibility and internal processing
+                "episodes": episodes,         # Detailed list for UI and reordering
                 "language": language,
                 "provider": provider,
                 "episodes_config": episodes_config,
@@ -358,9 +382,9 @@ class DownloadQueueManager:
                     # Check for per-episode configuration
                     # We match by link (URL)
                     if episodes_config and episode.link in episodes_config:
-                        config = episodes_config[episode.link]
-                        episode._selected_language = config.get("language", job["language"])
-                        episode._selected_provider = config.get("provider", job["provider"])
+                        config_val = episodes_config[episode.link]
+                        episode._selected_language = config_val.get("language", job["language"])
+                        episode._selected_provider = config_val.get("provider", job["provider"])
                     else:
                         episode._selected_language = job["language"]
                         episode._selected_provider = job["provider"]
@@ -403,11 +427,21 @@ class DownloadQueueManager:
                 for episode in anime.episode_list:
                     if self._stop_event.is_set() or queue_id in self._cancelled_jobs:
                         break
+                    
+                    # Check if this specific episode was cancelled/removed
+                    is_cancelled_flag = False
+                    with self._queue_lock:
+                        if queue_id in self._active_downloads:
+                            for ep_item in self._active_downloads[queue_id]["episodes"]:
+                                if ep_item["url"] == episode.link and ep_item["status"] == "cancelled":
+                                    is_cancelled_flag = True
+                                    break
+                    if is_cancelled_flag:
+                        continue
 
                     episode_info = f"{anime.title} - Episode {episode.episode} (Season {episode.season})"
 
                     # Update progress - reset episode progress to 0 when starting new episode
-                    # DON'T update completed_episodes here - it causes the progress bar to jump
                     self._update_download_status(
                         queue_id,
                         "downloading",
@@ -415,6 +449,13 @@ class DownloadQueueManager:
                         current_episode=f"Downloading {episode_info}",
                         current_episode_progress=0.0,
                     )
+
+                    # Update episode status in detailed list
+                    with self._queue_lock:
+                        if queue_id in self._active_downloads:
+                            for ep_item in self._active_downloads[queue_id]["episodes"]:
+                                if ep_item["url"] == episode.link:
+                                    ep_item["status"] = "downloading"
 
                     try:
                         # Create temp anime with single episode
@@ -436,9 +477,6 @@ class DownloadQueueManager:
                                 if self._stop_event.is_set() or queue_id in self._cancelled_jobs:
                                     # Signal yt-dlp to stop by raising an exception
                                     raise KeyboardInterrupt("Download stopped by user")
-
-                                # Log the raw progress data for debugging (disabled to reduce spam)
-                                # logging.info(f"Progress data received: {progress_data}")
 
                                 if progress_data["status"] == "downloading":
                                     # Try multiple methods to extract progress percentage
@@ -463,19 +501,6 @@ class DownloadQueueManager:
                                         if total and total > 0:
                                             percentage = (downloaded / total) * 100
 
-                                    # Method 3: Use fragment info if available
-                                    if percentage == 0.0:
-                                        fragment_index = progress_data.get(
-                                            "fragment_index", 0
-                                        )
-                                        fragment_count = progress_data.get(
-                                            "fragment_count", 0
-                                        )
-                                        if fragment_count and fragment_count > 0:
-                                            percentage = (
-                                                fragment_index / fragment_count
-                                            ) * 100
-
                                     # Ensure percentage is valid
                                     percentage = min(100.0, max(0.0, percentage))
 
@@ -483,17 +508,12 @@ class DownloadQueueManager:
                                     speed = progress_data.get("_speed_str", "N/A")
                                     eta = progress_data.get("_eta_str", "N/A")
 
-                                    # Clean ANSI color codes from yt-dlp output
+                                    # Clean ANSI color codes
                                     import re
-
                                     if speed != "N/A":
-                                        speed = re.sub(
-                                            r"\x1b\[[0-9;]*m", "", str(speed)
-                                        ).strip()
+                                        speed = re.sub(r"\x1b\[[0-9;]*m", "", str(speed)).strip()
                                     if eta != "N/A":
-                                        eta = re.sub(
-                                            r"\x1b\[[0-9;]*m", "", str(eta)
-                                        ).strip()
+                                        eta = re.sub(r"\x1b\[[0-9;]*m", "", str(eta)).strip()
 
                                     status_msg = f"Downloading {episode_info} - {percentage:.1f}%"
                                     if speed != "N/A" and speed:
@@ -501,74 +521,68 @@ class DownloadQueueManager:
                                     if eta != "N/A" and eta:
                                         status_msg += f" | ETA: {eta}"
 
-                                    # Update episode progress
+                                    # Update overall progress
                                     self.update_episode_progress(
                                         queue_id, percentage, status_msg
                                     )
-
-                                    # Log successful update for debugging (disabled to reduce spam)
-                                    # logging.info(f"Updated progress: {percentage:.1f}% for queue {queue_id}")
-
-                                elif progress_data["status"] == "finished":
-                                    # Episode completed - don't update progress here
-                                    # The progress will be updated correctly after file verification
-                                    logging.info(
-                                        f"Episode finished for queue {queue_id}"
-                                    )
+                                    
+                                    # Update individual episode progress & stats
+                                    with self._queue_lock:
+                                        if queue_id in self._active_downloads:
+                                            for ep_item in self._active_downloads[queue_id]["episodes"]:
+                                                if ep_item["url"] == episode.link:
+                                                    ep_item["progress"] = percentage
+                                                    ep_item["speed"] = speed if speed != "N/A" else ""
+                                                    ep_item["eta"] = eta if eta != "N/A" else ""
 
                             except Exception as e:
                                 logging.warning(f"Web progress callback error: {e}")
 
-                        # Execute download and capture result
+                        # Execute download
                         try:
-                            # Check files before download to better detect success
-                            from pathlib import Path
+                            # Check files before download
+                            anime_download_dir = Path(download_dir) / sanitize_filename(anime.title)
+                            files_before = len(list(anime_download_dir.glob("*"))) if anime_download_dir.exists() else 0
 
-                            # Use the actual configured download directory
-                            anime_download_dir = Path(download_dir) / sanitize_filename(
-                                anime.title
-                            )
-
-                            # Count files before download
-                            files_before = 0
-                            if anime_download_dir.exists():
-                                files_before = len(list(anime_download_dir.glob("*")))
-
-                            # Import and call the new download function with progress callback
                             from ..action.download import download
-
                             download(temp_anime, web_progress_callback)
 
-                            # Count files after download
-                            files_after = 0
-                            if anime_download_dir.exists():
-                                files_after = len(list(anime_download_dir.glob("*")))
+                            files_after = len(list(anime_download_dir.glob("*"))) if anime_download_dir.exists() else 0
 
-                            # Check if any new files were created and update progress immediately
                             if files_after > files_before:
                                 successful_downloads += 1
                                 logging.info(f"Downloaded: {episode_info}")
 
-                                # Update completed episodes count ONLY after successful download
+                                with self._queue_lock:
+                                    if queue_id in self._active_downloads:
+                                        for ep_item in self._active_downloads[queue_id]["episodes"]:
+                                            if ep_item["url"] == episode.link:
+                                                ep_item["status"] = "completed"
+                                                ep_item["progress"] = 100.0
+
                                 self._update_download_status(
                                     queue_id,
                                     "downloading",
-                                    completed_episodes=successful_downloads,  # Update completed count after successful download
+                                    completed_episodes=successful_downloads,
                                     current_episode=f"Completed {episode_info}",
                                     current_episode_progress=100.0,
                                 )
                             else:
                                 failed_downloads += 1
-                                logging.warning(
-                                    f"Failed to download: {episode_info} - No new files created"
-                                )
+                                with self._queue_lock:
+                                    if queue_id in self._active_downloads:
+                                        for ep_item in self._active_downloads[queue_id]["episodes"]:
+                                            if ep_item["url"] == episode.link:
+                                                ep_item["status"] = "failed"
 
                         except Exception as download_error:
-                            # If an exception was raised during download, it failed
                             failed_downloads += 1
-                            logging.warning(
-                                f"Failed to download: {episode_info} - Error: {download_error}"
-                            )
+                            logging.warning(f"Failed to download: {episode_info} - Error: {download_error}")
+                            with self._queue_lock:
+                                if queue_id in self._active_downloads:
+                                    for ep_item in self._active_downloads[queue_id]["episodes"]:
+                                        if ep_item["url"] == episode.link:
+                                            ep_item["status"] = "failed"
 
                     except Exception as e:
                         failed_downloads += 1
@@ -591,13 +605,11 @@ class DownloadQueueManager:
                 status = "failed"
                 error_msg = f"Download failed: No episodes downloaded out of {failed_downloads} attempted."
             elif failed_downloads > 0:
-                status = "completed"  # Partial success still counts as completed
+                status = "completed"
                 error_msg = f"Partially completed: {successful_downloads}/{total_attempted} episodes downloaded."
             else:
                 status = "completed"
-                error_msg = (
-                    f"Successfully downloaded {successful_downloads} episode(s)."
-                )
+                error_msg = f"Successfully downloaded {successful_downloads} episode(s)."
 
             self._update_download_status(
                 queue_id,
@@ -637,17 +649,81 @@ class DownloadQueueManager:
             if current_episode_desc:
                 download["current_episode"] = current_episode_desc
 
-            # Calculate overall progress: completed episodes + current episode progress
+            # Calculate overall progress
             completed = download["completed_episodes"]
             total = download["total_episodes"]
             if total > 0:
-                current_episode_contribution = (
-                    (episode_progress / 100.0) if episode_progress >= 0 else 0
-                )
+                current_episode_contribution = (episode_progress / 100.0) if episode_progress >= 0 else 0
                 new_progress = (completed + current_episode_contribution) / total * 100
                 download["progress_percentage"] = new_progress
 
             return True
+
+    def stop_episode(self, queue_id: int, ep_url: str) -> bool:
+        """Remove a single episode from a download job"""
+        with self._queue_lock:
+            if queue_id not in self._active_downloads:
+                return False
+
+            job = self._active_downloads[queue_id]
+            
+            # Find the episode
+            ep_to_remove = None
+            for ep in job["episodes"]:
+                if ep["url"] == ep_url:
+                    ep_to_remove = ep
+                    break
+            
+            if not ep_to_remove:
+                return False
+            
+            if ep_to_remove["status"] == "downloading":
+                ep_to_remove["status"] = "cancelled"
+                return True
+            
+            if ep_url in job["episode_urls"]:
+                job["episode_urls"].remove(ep_url)
+            
+            job["episodes"] = [ep for ep in job["episodes"] if ep["url"] != ep_url]
+            job["total_episodes"] = len(job["episodes"])
+            
+            if not job["episodes"]:
+                self.cancel_download(queue_id)
+                
+            return True
+
+    def reorder_episodes(self, queue_id: int, new_order_urls: list) -> bool:
+        """Change the order of episodes in a queued download"""
+        with self._queue_lock:
+            if queue_id not in self._active_downloads:
+                return False
+
+            job = self._active_downloads[queue_id]
+            
+            fixed_eps = [ep["url"] for ep in job["episodes"] if ep["status"] != "queued"]
+            if new_order_urls[:len(fixed_eps)] != fixed_eps:
+                return False
+
+            if set(job["episode_urls"]) != set(new_order_urls):
+                return False
+
+            job["episode_urls"] = new_order_urls
+            url_to_ep = {ep["url"]: ep for ep in job["episodes"]}
+            job["episodes"] = [url_to_ep[url] for url in new_order_urls]
+            
+            return True
+
+    def get_job_episodes(self, queue_id: int):
+        """Get detailed episodes for a job"""
+        with self._queue_lock:
+            if queue_id in self._active_downloads:
+                return self._active_downloads[queue_id].get("episodes", [])
+            
+            for job in self._completed_downloads:
+                if job["id"] == queue_id:
+                    return job.get("episodes", [])
+            
+            return None
 
     def _update_download_status(
         self,
@@ -669,63 +745,31 @@ class DownloadQueueManager:
 
             if completed_episodes is not None:
                 download["completed_episodes"] = completed_episodes
-                # Calculate progress percentage - only use current episode progress if status is downloading and we haven't completed this episode yet
                 total = download["total_episodes"]
                 current_ep_progress = download.get("current_episode_progress", 0.0)
 
                 if total > 0:
-                    # For completed episodes, don't add extra current episode contribution
-                    # since the episode is already counted as completed
                     if status == "downloading" and current_ep_progress < 100.0:
-                        # Episode is in progress, add partial progress
-                        current_episode_contribution = (
-                            (current_ep_progress / 100.0)
-                            if current_ep_progress >= 0
-                            else 0
-                        )
-                        new_progress = (
-                            (completed_episodes + current_episode_contribution)
-                            / total
-                            * 100
-                        )
+                        current_episode_contribution = (current_ep_progress / 100.0) if current_ep_progress >= 0 else 0
+                        new_progress = (completed_episodes + current_episode_contribution) / total * 100
                     else:
-                        # Episode is completed or we're not actively downloading, use completed count only
                         new_progress = completed_episodes / total * 100
-
                     download["progress_percentage"] = new_progress
-                else:
-                    download["progress_percentage"] = 0
 
             if current_episode is not None:
                 download["current_episode"] = current_episode
 
             if current_episode_progress is not None:
-                download["current_episode_progress"] = min(
-                    100.0, max(0.0, current_episode_progress)
-                )
-
-                # If we're updating episode progress but not completed_episodes,
-                # recalculate overall progress with current values
+                download["current_episode_progress"] = min(100.0, max(0.0, current_episode_progress))
                 if completed_episodes is None:
                     total = download["total_episodes"]
                     current_completed = download["completed_episodes"]
                     if total > 0:
-                        # Only add current episode contribution if actively downloading and episode not yet completed
                         if status == "downloading" and current_episode_progress < 100.0:
-                            current_episode_contribution = (
-                                (current_episode_progress / 100.0)
-                                if current_episode_progress >= 0
-                                else 0
-                            )
-                            new_progress = (
-                                (current_completed + current_episode_contribution)
-                                / total
-                                * 100
-                            )
+                            current_episode_contribution = (current_episode_progress / 100.0) if current_episode_progress >= 0 else 0
+                            new_progress = (current_completed + current_episode_contribution) / total * 100
                         else:
-                            # Use completed count only
                             new_progress = current_completed / total * 100
-
                         download["progress_percentage"] = new_progress
 
             if error_message is not None:
@@ -734,25 +778,18 @@ class DownloadQueueManager:
             if total_episodes is not None:
                 download["total_episodes"] = total_episodes
 
-            # Update timestamps based on status
+            # Update timestamps
             if status == "downloading" and download["started_at"] is None:
                 download["started_at"] = datetime.now()
             elif status in ["completed", "failed"]:
                 download["completed_at"] = datetime.now()
-                # Set final progress for completed downloads
                 if status == "completed":
                     download["current_episode_progress"] = 100.0
                     download["progress_percentage"] = 100.0
 
-                # Move to completed list and remove from active
                 self._completed_downloads.append(download.copy())
-                # Keep only recent completed downloads
                 if len(self._completed_downloads) > self._max_completed_history:
-                    self._completed_downloads = self._completed_downloads[
-                        -self._max_completed_history :
-                    ]
-
-                # Remove from active downloads
+                    self._completed_downloads = self._completed_downloads[-self._max_completed_history:]
                 del self._active_downloads[queue_id]
 
             return True
