@@ -533,6 +533,16 @@ def _parse_season_episodes_details(soup: BeautifulSoup, season: int) -> List[Dic
                         elif "svg-flag-japanese" in svg_class:
                             languages.append(3) # Japanese (Sub)
 
+                # Extract providers from icons
+                providers = []
+                watch_cell = row.find("td", class_="episode-watch-cell")
+                if watch_cell:
+                    provider_imgs = watch_cell.find_all("img", class_="watch-link")
+                    for img in provider_imgs:
+                        prov_name = img.get("alt") or img.get("title")
+                        if prov_name:
+                            providers.append(prov_name)
+
                 # Extract titles
                 german_title = ""
                 english_title = ""
@@ -547,6 +557,7 @@ def _parse_season_episodes_details(soup: BeautifulSoup, season: int) -> List[Dic
                     "season": season,
                     "episode": ep_num,
                     "languages": sorted(list(set(languages))),
+                    "providers": sorted(list(set(providers))),
                     "title_german": german_title,
                     "title_english": english_title
                 })

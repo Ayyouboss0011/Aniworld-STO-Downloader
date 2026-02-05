@@ -222,23 +222,7 @@
                     {% if not auth_enabled or (user and user.is_admin) %}<p><strong>Download Path:</strong> <span id="download-path"></span> <i class="fas fa-info-circle path-info-icon" title="You can change the download path by using the --output-dir /your/custom/path parameter"></i></p>{% endif %}
                 </div>
 
-                <!-- Download Settings -->
-                <div class="download-settings">
-                    <div class="setting-group">
-                        <label for="language-select"><strong>Language:</strong></label>
-                        <select id="language-select" class="language-dropdown">
-                            <option value="">Loading languages...</option>
-                        </select>
-                    </div>
-                    <div class="setting-group">
-                        <label for="provider-select"><strong>Provider:</strong></label>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <select id="provider-select" class="provider-dropdown" style="flex-grow: 1;">
-                                <option value="">Loading providers...</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
+
 
                 <!-- Episode Selection Tree -->
                 <div class="episode-selection">

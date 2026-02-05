@@ -1017,7 +1017,8 @@ class WebApp:
                                         "title": f"Episode {ep_num}",
                                         "url": f"{base_url}/{stream_path}/{slug}/staffel-{season_num}/episode-{ep_num}",
                                         "languages": lang_names,
-                                        "language_codes": lang_codes
+                                        "language_codes": lang_codes,
+                                        "providers": ep_data.get("providers", [])
                                     }
                                 )
 

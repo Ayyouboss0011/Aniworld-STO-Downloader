@@ -2319,26 +2319,30 @@ body[data-theme="dark"] .episode-progress-text {
 
 .episode-lang-wrapper {
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
 }
 
-.episode-lang-badges {
+.episode-lang-badges, .episode-provider-badges {
     display: flex;
     gap: 0.25rem;
 }
 
-.lang-badge {
-    background: var(--bg-tertiary);
-    color: var(--text-secondary);
+.lang-badge, .provider-badge {
     font-size: 0.7rem;
-    padding: 4px 8px;
+    padding: 2px 6px;
     border-radius: 4px;
     white-space: nowrap;
     border: 1px solid var(--border-color);
     cursor: pointer;
     transition: all 0.2s ease;
     user-select: none;
+}
+
+.lang-badge {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
 }
 
 .lang-badge:hover {
@@ -2350,6 +2354,24 @@ body[data-theme="dark"] .episode-progress-text {
     background: #4299e1;
     color: white;
     border-color: #3182ce;
+    font-weight: 600;
+}
+
+.provider-badge {
+    background: rgba(159, 122, 234, 0.1);
+    color: #9f7aea;
+    border-color: rgba(159, 122, 234, 0.3);
+}
+
+.provider-badge:hover {
+    background: rgba(159, 122, 234, 0.2);
+    border-color: #9f7aea;
+}
+
+.provider-badge.active {
+    background: #9f7aea;
+    color: white;
+    border-color: #805ad5;
     font-weight: 600;
 }
 

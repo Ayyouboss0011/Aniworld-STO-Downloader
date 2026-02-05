@@ -14,6 +14,7 @@ export const Download = {
         availableMovies: [],
         selectedEpisodes: new Set(),
         episodeLanguageSelections: {},
+        episodeProviderSelections: {},
         languagePreferences: { aniworld: [], sto: [] },
         availableProviders: []
     },
@@ -21,8 +22,6 @@ export const Download = {
     elements: {
         downloadModal: document.getElementById('download-modal'),
         animeTitle: document.getElementById('download-anime-title'),
-        languageSelect: document.getElementById('language-select'),
-        providerSelect: document.getElementById('provider-select'),
         episodeTree: document.getElementById('episode-tree'),
         episodeTreeLoading: document.getElementById('episode-tree-loading'),
         selectedCount: document.getElementById('selected-episode-count'),
@@ -55,10 +54,9 @@ export const Download = {
         this.state.selectedEpisodes.clear();
         this.state.availableEpisodes = {};
         this.state.episodeLanguageSelections = {};
+        this.state.episodeProviderSelections = {};
 
         if (this.elements.animeTitle) this.elements.animeTitle.textContent = animeTitle;
-        this.populateLanguageDropdown(detectedSite);
-        this.populateProviderDropdown(detectedSite);
 
         if (this.elements.episodeTreeLoading) this.elements.episodeTreeLoading.style.display = 'flex';
         if (this.elements.episodeTree) this.elements.episodeTree.style.display = 'none';
@@ -96,6 +94,7 @@ export const Download = {
         this.state.availableEpisodes = {};
         this.state.availableMovies = [];
         this.state.episodeLanguageSelections = {};
+        this.state.episodeProviderSelections = {};
         if (this.elements.trackCheckbox) this.elements.trackCheckbox.checked = false;
 
         // Reset all download button loaders
@@ -108,114 +107,6 @@ export const Download = {
         });
     },
 
-    populateProviderDropdown(site, availableList = null) {
-        if (!this.elements.providerSelect) return;
-
-        let siteProviders = availableList || (site === 's.to' ? ['VOE'] : ['VOE', 'Filemoon', 'Vidmoly']);
-        const currentValue = this.elements.providerSelect.value;
-        this.elements.providerSelect.innerHTML = '';
-        
-        siteProviders.forEach(provider => {
-            const option = document.createElement('option');
-            option.value = provider;
-            option.textContent = provider;
-            this.elements.providerSelect.appendChild(option);
-        });
-
-        if (availableList && availableList.includes(currentValue)) {
-            this.elements.providerSelect.value = currentValue;
-        } else if (siteProviders.length > 0) {
-            this.elements.providerSelect.value = siteProviders[0];
-        }
-    },
-
-    populateLanguageDropdown(site, availableList = null) {
-        if (!this.elements.languageSelect) return;
-
-        let availableLanguages = availableList || (site === 's.to' ? ['German Dub', 'English Dub'] : ['German Dub', 'English Sub', 'German Sub']);
-        const currentValue = this.elements.languageSelect.value;
-        this.elements.languageSelect.innerHTML = '';
-
-        availableLanguages.forEach(language => {
-            const option = document.createElement('option');
-            option.value = language;
-            option.textContent = language;
-            this.elements.languageSelect.appendChild(option);
-        });
-
-        const sitePrefs = site === 's.to' ? this.state.languagePreferences.sto : this.state.languagePreferences.aniworld;
-        let preferredLang = sitePrefs?.find(pref => availableLanguages.includes(pref));
-
-        if (preferredLang) {
-            this.elements.languageSelect.value = preferredLang;
-        } else if (availableList) {
-            if (availableList.includes(currentValue)) {
-                this.elements.languageSelect.value = currentValue;
-            } else if (availableList.includes('German Sub')) {
-                this.elements.languageSelect.value = 'German Sub';
-            } else if (availableList.includes('German Dub')) {
-                this.elements.languageSelect.value = 'German Dub';
-            } else if (availableLanguages.length > 0) {
-                this.elements.languageSelect.value = availableLanguages[0];
-            }
-        } else {
-            setTimeout(() => {
-                this.elements.languageSelect.value = site === 's.to' ? 'German Dub' : 'German Sub';
-            }, 0);
-        }
-    },
-
-    async checkAvailability() {
-        if (!this.state.currentDownloadData) return;
-
-        let episodeUrl = null;
-        if (this.state.selectedEpisodes.size > 0) {
-            const firstKey = this.state.selectedEpisodes.values().next().value;
-            const [s, e] = firstKey.split('-').map(Number);
-            const epData = this.state.availableEpisodes[s]?.find(item => item.season === s && item.episode === e);
-            if (epData) episodeUrl = epData.url;
-        }
-        
-        if (!episodeUrl) {
-            const seasons = Object.keys(this.state.availableEpisodes).sort((a, b) => Number(a) - Number(b));
-            if (seasons.length > 0 && this.state.availableEpisodes[seasons[0]].length > 0) {
-                episodeUrl = this.state.availableEpisodes[seasons[0]][0].url;
-            }
-        }
-
-        if (!episodeUrl) {
-            showNotification('No episodes available to check', 'error');
-            return;
-        }
-
-        const btn = document.getElementById('check-availability-btn');
-        const originalHtml = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
-
-        try {
-            const data = await API.getEpisodeProviders(episodeUrl);
-            if (data.success) {
-                this.populateProviderDropdown(this.state.currentDownloadData.site, data.providers);
-                this.populateLanguageDropdown(this.state.currentDownloadData.site, data.languages);
-                
-                const episodesToVerify = Object.values(this.state.availableEpisodes).flat();
-                if (episodesToVerify.length > 0) {
-                    this.autoVerifyEpisodeLanguages(episodesToVerify);
-                }
-                showNotification(`Found ${data.providers.length} providers and ${data.languages.length} languages`, 'success');
-            } else {
-                showNotification(data.error || 'Failed to check availability', 'error');
-            }
-        } catch (error) {
-            console.error('Check availability error:', error);
-            showNotification('Failed to check availability', 'error');
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = originalHtml;
-        }
-    },
-
     async autoVerifyEpisodeLanguages(episodes) {
         const batchSize = 3;
         for (let i = 0; i < episodes.length; i += batchSize) {
@@ -226,13 +117,26 @@ export const Download = {
                     if (data.success) {
                         const langWrapper = document.querySelector(`.episode-lang-wrapper[data-episode-url="${ep.url}"]`);
                         if (langWrapper) {
-                            let badgesContainer = langWrapper.querySelector('.episode-lang-badges') || document.createElement('div');
-                            badgesContainer.className = 'episode-lang-badges';
-                            if (!langWrapper.querySelector('.episode-lang-badges')) langWrapper.appendChild(badgesContainer);
-                            this.createLanguageBadges(badgesContainer, data.languages, ep.url);
+                            let langBadgesContainer = langWrapper.querySelector('.episode-lang-badges') || document.createElement('div');
+                            langBadgesContainer.className = 'episode-lang-badges';
+                            if (!langWrapper.querySelector('.episode-lang-badges')) langWrapper.appendChild(langBadgesContainer);
+                            this.createLanguageBadges(langBadgesContainer, data.languages, ep.url);
+
+                            let providerWrapper = langWrapper.querySelector('.episode-provider-wrapper') || document.createElement('div');
+                            providerWrapper.className = 'episode-provider-wrapper';
+                            providerWrapper.dataset.episodeUrl = ep.url;
+                            if (!langWrapper.querySelector('.episode-provider-wrapper')) langWrapper.appendChild(providerWrapper);
+
+                            let provBadgesContainer = providerWrapper.querySelector('.episode-provider-badges') || document.createElement('div');
+                            provBadgesContainer.className = 'episode-provider-badges';
+                            if (!providerWrapper.querySelector('.episode-provider-badges')) providerWrapper.appendChild(provBadgesContainer);
+                            this.createProviderBadges(provBadgesContainer, data.providers, ep.url);
                         }
                         const epInCache = this.state.availableEpisodes[ep.season]?.find(e => e.episode === ep.episode);
-                        if (epInCache) epInCache.languages = data.languages;
+                        if (epInCache) {
+                            epInCache.languages = data.languages;
+                            epInCache.providers = data.providers;
+                        }
                         this.updateSeasonLanguageBadges(ep.season);
                     }
                 } catch (err) { console.error(`Auto-verify error for ${ep.season}x${ep.episode}:`, err); }
@@ -251,8 +155,13 @@ export const Download = {
         let selectedLang = this.state.episodeLanguageSelections[episodeUrl];
         if (!selectedLang) {
             const sitePrefs = this.state.currentDownloadData.site === 's.to' ? this.state.languagePreferences.sto : this.state.languagePreferences.aniworld;
-            selectedLang = sitePrefs?.find(pref => languages.includes(pref)) || this.elements.languageSelect.value;
-            if (languages.length > 0 && !languages.includes(selectedLang)) selectedLang = languages[0];
+            selectedLang = sitePrefs?.find(pref => languages.includes(pref));
+            if (!selectedLang) {
+                // Default fallback if no preference matches
+                if (languages.includes('German Dub')) selectedLang = 'German Dub';
+                else if (languages.includes('German Sub')) selectedLang = 'German Sub';
+                else if (languages.length > 0) selectedLang = languages[0];
+            }
             this.state.episodeLanguageSelections[episodeUrl] = selectedLang;
         }
 
@@ -265,6 +174,33 @@ export const Download = {
                 e.stopPropagation();
                 this.state.episodeLanguageSelections[episodeUrl] = lang;
                 container.querySelectorAll('.lang-badge').forEach(b => b.classList.remove('active'));
+                badge.classList.add('active');
+            });
+            container.appendChild(badge);
+        });
+    },
+
+    createProviderBadges(container, providers, episodeUrl) {
+        container.innerHTML = '';
+        if (!providers || providers.length === 0) {
+            return;
+        }
+
+        let selectedProv = this.state.episodeProviderSelections[episodeUrl];
+        if (!selectedProv && providers.length > 0) {
+            selectedProv = providers[0];
+        }
+        if (selectedProv) this.state.episodeProviderSelections[episodeUrl] = selectedProv;
+
+        providers.forEach(prov => {
+            const badge = document.createElement('span');
+            badge.className = 'provider-badge' + (prov === selectedProv ? ' active' : '');
+            badge.textContent = prov.replace('streamtape', 'ST').replace('filemoon', 'FM').replace('vidmoly', 'VM').replace('vidoza', 'VZ');
+            badge.title = prov;
+            badge.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.state.episodeProviderSelections[episodeUrl] = prov;
+                container.querySelectorAll('.provider-badge').forEach(b => b.classList.remove('active'));
                 badge.classList.add('active');
             });
             container.appendChild(badge);
@@ -305,10 +241,14 @@ export const Download = {
                     </div>
                     <div class="episode-lang-wrapper" data-episode-url="${episode.url}">
                         <div class="episode-lang-badges"></div>
+                        <div class="episode-provider-wrapper" data-episode-url="${episode.url}">
+                            <div class="episode-provider-badges"></div>
+                        </div>
                     </div>
                 `;
                 epItem.querySelector('.episode-checkbox').addEventListener('change', (e) => this.toggleEpisode(episode, e.target.checked));
                 this.createLanguageBadges(epItem.querySelector('.episode-lang-badges'), episode.languages, episode.url);
+                this.createProviderBadges(epItem.querySelector('.episode-provider-badges'), episode.providers, episode.url);
                 epContainer.appendChild(epItem);
                 if (!episode.languages || episode.languages.length === 0) episodesToVerify.push(episode);
             });
@@ -416,7 +356,12 @@ export const Download = {
         this.elements.confirmBtn.textContent = count > 0 ? 'Starting...' : 'Adding...';
 
         if (count === 0 && isTrackerEnabled) {
-            const success = await Trackers.addTrackerForSeries(this.state.currentDownloadData, this.state.availableEpisodes, this.elements.languageSelect.value, this.elements.providerSelect.value);
+            // Get default language from preferences for tracker
+            const sitePrefs = this.state.currentDownloadData.site === 's.to' ? this.state.languagePreferences.sto : this.state.languagePreferences.aniworld;
+            const defaultLang = sitePrefs && sitePrefs.length > 0 ? sitePrefs[0] : (this.state.currentDownloadData.site === 's.to' ? 'German Dub' : 'German Sub');
+            const defaultProv = this.state.currentDownloadData.site === 's.to' ? 'VOE' : 'VOE'; // Fallback
+            
+            const success = await Trackers.addTrackerForSeries(this.state.currentDownloadData, this.state.availableEpisodes, defaultLang, defaultProv);
             if (success) this.hideModal();
             this.elements.confirmBtn.disabled = false;
             this.updateSelectedCount();
@@ -425,29 +370,36 @@ export const Download = {
 
         const selectedUrls = [];
         const episodesConfig = {};
-        const lang = this.elements.languageSelect.value;
-        const prov = this.elements.providerSelect.value;
+        
+        // Use first selected episode's language or preferred language for overall request (though episodesConfig overrides)
+        const sitePrefs = this.state.currentDownloadData.site === 's.to' ? this.state.languagePreferences.sto : this.state.languagePreferences.aniworld;
+        let overallLang = sitePrefs && sitePrefs.length > 0 ? sitePrefs[0] : (this.state.currentDownloadData.site === 's.to' ? 'German Dub' : 'German Sub');
+        let overallProv = 'VOE';
 
         this.state.selectedEpisodes.forEach(key => {
             const [s, e] = key.split('-').map(Number);
             const epData = this.state.availableEpisodes[s]?.find(item => item.season === s && item.episode === e);
             if (epData) {
                 selectedUrls.push(epData.url);
-                episodesConfig[epData.url] = { language: this.state.episodeLanguageSelections[epData.url] || lang, provider: prov };
+                const epLang = this.state.episodeLanguageSelections[epData.url] || overallLang;
+                const epProv = this.state.episodeProviderSelections[epData.url] || (epData.providers && epData.providers.length > 0 ? epData.providers[0] : overallProv);
+                episodesConfig[epData.url] = { language: epLang, provider: epProv };
+                overallLang = epLang; // Use the last one as representative
+                overallProv = epProv;
             }
         });
 
         try {
             const data = await API.startDownload({
                 episode_urls: selectedUrls,
-                language: lang,
-                provider: prov,
+                language: overallLang,
+                provider: overallProv,
                 anime_title: this.state.currentDownloadData.anime,
                 episodes_config: episodesConfig
             });
             if (data.success) {
                 showNotification(`Download started for ${selectedUrls.length} episodes`, 'success');
-                if (isTrackerEnabled) await Trackers.addTrackerForSeries(this.state.currentDownloadData, this.state.availableEpisodes, lang, prov);
+                if (isTrackerEnabled) await Trackers.addTrackerForSeries(this.state.currentDownloadData, this.state.availableEpisodes, overallLang, overallProv);
                 this.hideModal();
                 Queue.startTracking();
             } else { showNotification(data.error || 'Download failed', 'error'); }
