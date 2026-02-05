@@ -3,11 +3,11 @@ services:
     container_name: aniworld-downloader
     build: .
     image: aniworld-new
-    command: ["aniworld", "--web-ui", "--web-port", "3005", "--no-browser", "--web-expose", "--output-dir", "/app/downloads"]
+    command: ["aniworld", "--web-ui", "--web-port", "${WEB_PORT:-3005}", "--no-browser", "--web-expose", "--output-dir", "/app/downloads"]
     ports:
-      - "3005:3005"
+      - "${WEB_PORT:-3005}:${WEB_PORT:-3005}"
     volumes:
-      - ~/jellyfin/config/meineserien/:/app/downloads
+      - ${DOWNLOAD_DIR:-~/jellyfin/config/meineserien/}:/app/downloads
       - aniworld-data:/app/data
     restart: unless-stopped
 
