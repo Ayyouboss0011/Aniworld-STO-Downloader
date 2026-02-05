@@ -1,5 +1,5 @@
 /**
- * search.js - Search functionality for lankabeltv Web Interface
+ * search.js - Search functionality for Aniworld-STO-Downloader Web Interface
  */
 
 import API from './api.js';

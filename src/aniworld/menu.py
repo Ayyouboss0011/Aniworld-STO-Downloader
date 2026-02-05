@@ -271,7 +271,7 @@ class SelectionMenu(npyscreen.NPSApp):
         """
         npyscreen.setTheme(CustomTheme)
         form_title = (
-            f"Welcome to lankabeltv v.{VERSION}"
+            f"Welcome to Aniworld-STO-Downloader v.{VERSION}"
             f"{' (Update Available)' if not IS_NEWEST_VERSION else ''}"
         )
 

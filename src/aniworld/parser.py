@@ -334,7 +334,7 @@ def _handle_version() -> None:
     """Handle version information display."""
     cowsay = Rf"""
 _____________________________
-< lankabeltv v.{config.VERSION} >
+< Aniworld-STO-Downloader v.{config.VERSION} >
 -----------------------------
         \   ^__^
          \  (oo)\_______
@@ -537,7 +537,7 @@ def _handle_debug_mode() -> None:
     """Handle debug mode setup."""
     logging.getLogger().setLevel(logging.DEBUG)
     logging.debug("=============================================")
-    logging.debug("   Welcome to lankabeltv v.%s!   ", config.VERSION)
+    logging.debug("   Welcome to Aniworld-STO-Downloader v.%s!   ", config.VERSION)
     logging.debug("=============================================\n")
 
     system = platform.system()
@@ -611,7 +611,7 @@ def _handle_hanime_episodes(args: argparse.Namespace) -> None:
 
 def parse_arguments() -> argparse.Namespace:
     """
-    Parse command-line arguments for the lankabeltv.
+    Parse command-line arguments for the Aniworld-STO-Downloader.
 
     Returns:
         Parsed command-line arguments

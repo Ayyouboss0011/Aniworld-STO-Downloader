@@ -1,5 +1,5 @@
 """
-lankabeltv main entry point.
+Aniworld-STO-Downloader main entry point.
 """
 
 import sys
@@ -12,7 +12,7 @@ from .config import VERSION, IS_NEWEST_VERSION
 
 def set_terminal_title() -> None:
     """Set the terminal window title with version and update status."""
-    title = f"lankabeltv v.{VERSION}"
+    title = f"Aniworld-STO-Downloader v.{VERSION}"
     if not IS_NEWEST_VERSION:
         title += " (Update Available)"
 
@@ -22,7 +22,7 @@ def set_terminal_title() -> None:
 
 def main() -> NoReturn:
     """
-    Main entry point for the lankabeltv application.
+    Main entry point for the Aniworld-STO-Downloader application.
 
     Sets up the terminal title and launches the main application.
     Handles graceful shutdown on keyboard interrupt.

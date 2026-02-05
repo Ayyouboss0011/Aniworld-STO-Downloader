@@ -1,12 +1,12 @@
 <a id="readme-top"></a>
 
-# lankabeltv
+# Aniworld-STO-Downloader
 
-lankabeltv is a powerful, all-in-one tool for downloading and streaming anime from **aniworld.to** and movies/TV shows from **s.to**. It features a **modern Web Interface** for effortless management, a robust CLI for power users, and an automated tracking system to keep your library up to date.
+Aniworld-STO-Downloader is a powerful, all-in-one tool for downloading and streaming anime from **aniworld.to** and movies/TV shows from **s.to**. It features a **modern Web Interface** for effortless management, a robust CLI for power users, and an automated tracking system to keep your library up to date.
 
 [![License](https://img.shields.io/pypi/l/aniworld?label=License&color=blue)](LICENSE)
 
-![lankabeltv - Demo](readme_image.png)
+![Aniworld-STO-Downloader - Demo](readme_image.png)
 
 ## 🚀 Quick Start
 
@@ -46,7 +46,7 @@ aniworld --web-ui
 
 ## 🖥️ Web Interface
 
-The Web UI is the heart of lankabeltv, providing a user-friendly way to interact with your media.
+The Web UI is the heart of Aniworld-STO-Downloader, providing a user-friendly way to interact with your media.
 
 - **Discovery**: See popular and newly added anime right on the home screen.
 - **Unified Search**: Search for titles across both AniWorld and S.to at the same time.
@@ -121,7 +121,7 @@ pip install --upgrade git+https://github.com/Ayyouboss0011/Aniworld-STO-Download
 
 ## ⌨️ Command-Line Power
 
-lankabeltv remains a powerful CLI tool for automation.
+Aniworld-STO-Downloader remains a powerful CLI tool for automation.
 
 | Feature | Command Example |
 | :--- | :--- |
@@ -137,7 +137,7 @@ lankabeltv remains a powerful CLI tool for automation.
 
 ## 📚 Library Usage (Python API)
 
-Integrate lankabeltv into your own scripts:
+Integrate Aniworld-STO-Downloader into your own scripts:
 
 ```python
 from aniworld.models import Anime, Episode
@@ -162,7 +162,7 @@ Since the fork, all new features (such as the modern Web Interface, automated tr
 
 - **Discord**: Join us on Discord (`phoenixthrush` or `tmaster067`)
 - **Issues**: [Report a bug](https://github.com/Ayyouboss0011/Aniworld-STO-Downloader/issues)
-- **Docs**: [Full Documentation](https://www.phoenixthrush.com/lankabeltv-Docs/)
+- **Docs**: [Full Documentation](https://www.phoenixthrush.com/Aniworld-STO-Downloader-Docs/)
 
 ### Contribution
 
@@ -179,7 +179,7 @@ pytest tests/
 
 ## ⚖️ Legal & License
 
-**Disclaimer**: lankabeltv is a scraper designed to facilitate access to publicly available content. It does not host any files. Users are responsible for complying with local copyright laws.
+**Disclaimer**: Aniworld-STO-Downloader is a scraper designed to facilitate access to publicly available content. It does not host any files. Users are responsible for complying with local copyright laws.
 
 Licensed under the **MIT License**.
 

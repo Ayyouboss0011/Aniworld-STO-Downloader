@@ -54,10 +54,10 @@ py -m nuitka ^
     --include-data-file=src/aniworld/aniskip/scripts/autoexit.lua=aniworld/aniskip/scripts/autoexit.lua ^
     --output-filename="aniworld-!VERSION!-windows_x64" ^
     --company-name="Phoenixthrush UwU" ^
-    --product-name="lankabeltv" ^
+    --product-name="Aniworld-STO-Downloader" ^
     --file-version="!VERSION!" ^
     --product-version="!VERSION!" ^
-    --file-description="lankabeltv is a command-line tool for downloading and streaming content from aniworld.to and s.to." ^
+    --file-description="Aniworld-STO-Downloader is a command-line tool for downloading and streaming content from aniworld.to and s.to." ^
     --copyright="Copyright (c) 2024-!YEAR! phoenixthrush, Tmaster055" ^
     --windows-icon-from-ico=src/aniworld/nuitka/icon.webp ^
     "%TEMP_MAIN_PATH%"

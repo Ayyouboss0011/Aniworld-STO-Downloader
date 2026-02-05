@@ -1,5 +1,5 @@
 /**
- * ui.js - UI helpers and theme management for lankabeltv Web Interface
+ * ui.js - UI helpers and theme management for Aniworld-STO-Downloader Web Interface
  */
 
 export function showNotification(msg, type = 'info') {
