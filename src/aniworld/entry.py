@@ -91,7 +91,9 @@ def _group_episodes_by_series(links: List[str]) -> List[Anime]:
         if link:
             parts = link.split("/")
             try:
-                if "stream" in parts:
+                if "vidking.net" in link:
+                    series_slug = f"vidking:{parts[-1]}"
+                elif "stream" in parts:
                     series_slug = parts[parts.index("stream") + 1]
                 elif "serie" in parts:
                     series_slug = parts[parts.index("serie") + 1]

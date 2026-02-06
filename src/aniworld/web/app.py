@@ -533,13 +533,14 @@ class WebApp:
                 # Create wrapper function for search with dual-site support
                 def search_anime_wrapper(keyword, site="both"):
                     """Wrapper function for anime search with multi-site support"""
-                    from ..search import search_anime
+                    from ..search import search_anime, search_tmdb_movies
                     from .. import config
 
                     if site == "both":
-                        # Search both sites using the new search_anime function
+                        # Search both sites and movies
                         aniworld_results = []
                         sto_results = []
+                        movie_results = []
 
                         try:
                             aniworld_results = search_anime(keyword=keyword, only_return=True, site="aniworld.to")
@@ -551,11 +552,27 @@ class WebApp:
                         except Exception as e:
                             logging.warning(f"Failed to fetch from s.to: {e}")
 
+                        try:
+                            movie_results = search_tmdb_movies(keyword)
+                        except Exception as e:
+                            logging.warning(f"Failed to fetch movies: {e}")
+
                         # Combine and deduplicate results
                         all_results = []
                         seen_slugs = set()
 
-                        # Add aniworld results first
+                        # Add movies first (as they are usually most specific)
+                        for movie in movie_results:
+                            movie["site"] = "tmdb"
+                            movie["base_url"] = "https://www.vidking.net"
+                            movie["stream_path"] = "embed/movie"
+                            # Construct the VidKing slug using the TMDB ID
+                            tmdb_id = movie.get("id")
+                            if tmdb_id:
+                                movie["link"] = f"vidking:{tmdb_id}"
+                            all_results.append(movie)
+
+                        # Add aniworld results
                         for anime in aniworld_results:
                             slug = anime.get("link", "")
                             if slug and slug not in seen_slugs:
@@ -592,6 +609,24 @@ class WebApp:
                             return results
                         except Exception as e:
                             logging.error(f"s.to search failed: {e}")
+                            return []
+
+                    elif site == "movies":
+                        # TMDB movie search
+                        from ..search import search_tmdb_movies
+                        try:
+                            results = search_tmdb_movies(keyword)
+                            for movie in results:
+                                movie["site"] = "tmdb"
+                                movie["base_url"] = "https://www.vidking.net"
+                                movie["stream_path"] = "embed/movie"
+                                # Construct the VidKing slug using the TMDB ID
+                                tmdb_id = movie.get("id")
+                                if tmdb_id:
+                                    movie["link"] = f"vidking:{tmdb_id}"
+                            return results
+                        except Exception as e:
+                            logging.error(f"TMDB search failed: {e}")
                             return []
 
                     else:
@@ -642,12 +677,14 @@ class WebApp:
                     processed_anime = {
                         "title": title,
                         "url": full_url,
-                        "description": anime.get("description", ""),
+                        "description": anime.get("description", "") or anime.get("overview", ""),
                         "slug": link,
                         "name": name,
                         "year": year,
                         "site": anime_site,
-                        "cover": cover,
+                        "cover": cover or anime.get("poster_path"),
+                        "rating": anime.get("vote_average"),
+                        "release_date": anime.get("release_date"),
                     }
 
                     processed_results.append(processed_anime)
@@ -1010,6 +1047,10 @@ class WebApp:
                     )
                     from ..entry import _detect_site_from_url
                     from .. import config
+
+                    # Special handling for VidKing URLs
+                    if "vidking.net" in series_url:
+                        return {}, [], series_url.split("/")[-1]
 
                     # Extract slug and site using existing functions
                     _site = _detect_site_from_url(series_url)

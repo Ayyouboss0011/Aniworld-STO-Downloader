@@ -228,6 +228,121 @@ def _clean_json_text(text: str) -> str:
 
 
 
+def search_tmdb_movies(keyword: str) -> List[Dict]:
+    """
+    Search for movies on TMDB using search/trending and enriching from spans.
+
+    Args:
+        keyword: Search term
+
+    Returns:
+        List[Dict]: List of movie dictionaries
+    """
+    try:
+        search_url = f"https://www.themoviedb.org/search/trending?query={quote(keyword)}"
+        response = requests.get(search_url, timeout=DEFAULT_REQUEST_TIMEOUT)
+        response.raise_for_status()
+        
+        data = response.json()
+        results = data.get("results", [])
+        
+        movie_list = []
+        seen_ids = set()
+        seen_names = set()
+
+        def add_movie(m_data):
+            tmdb_id = m_data.get("id")
+            name = m_data.get("title") or m_data.get("name") or m_data.get("original_title") or m_data.get("original_name")
+            if not name:
+                return
+
+            if tmdb_id and tmdb_id in seen_ids:
+                return
+            
+            if not tmdb_id and name in seen_names:
+                return
+
+            movie_entry = {
+                "name": name,
+                "id": tmdb_id,
+                "tmdb_id": tmdb_id,
+                "poster_path": m_data.get("poster_path"),
+                "release_date": m_data.get("release_date"),
+                "overview": m_data.get("overview") or m_data.get("description"),
+                "vote_average": m_data.get("vote_average"),
+                "media_type": "movie"
+            }
+            movie_list.append(movie_entry)
+            if tmdb_id:
+                seen_ids.add(tmdb_id)
+            seen_names.add(name)
+
+        # 1. Process full objects first (except persons)
+        for item in results:
+            if isinstance(item, dict) and item.get("media_type") == "movie":
+                add_movie(item)
+
+        # 2. Process spans to find all related movie titles
+        span_titles = []
+        for item in results:
+            if isinstance(item, str) and 'data-media-type="/movie"' in item:
+                try:
+                    name_match = re.search(r'data-search-name="([^"]+)"', item)
+                    if name_match:
+                        name = html.unescape(name_match.group(1))
+                        if name not in seen_names:
+                            span_titles.append(name)
+                except Exception:
+                    continue
+
+        # 3. Enrich missing movies from span titles
+        if span_titles:
+            def fetch_movie_details(name):
+                try:
+                    # Clean title for better matching (remove text in parentheses)
+                    clean_name = re.sub(r'\s*\([^)]*\)', '', name).strip()
+                    # We use the 'multi' search which is very robust for exact names
+                    enrich_url = f"https://www.themoviedb.org/search/multi?query={quote(clean_name)}"
+                    headers = {
+                        "Accept": "application/json",
+                        "X-Requested-With": "XMLHttpRequest"
+                    }
+                    resp = requests.get(enrich_url, headers=headers, timeout=DEFAULT_REQUEST_TIMEOUT)
+                    if resp.status_code == 200:
+                        try:
+                            movie_data = resp.json()
+                            movie_results = movie_data.get("results", [])
+                        except Exception:
+                            return {"title": name}
+                        
+                        if movie_results:
+                            # Filter for movies only and prefer exact matches
+                            movies_only = [m for m in movie_results if m.get("media_type") == "movie"]
+                            if not movies_only:
+                                movies_only = movie_results # Fallback
+                                
+                            for m in movies_only:
+                                m_title = m.get("title") or m.get("original_title") or m.get("name")
+                                if m_title and (m_title == name or m_title == clean_name):
+                                    return m
+                            return movies_only[0]
+                except Exception:
+                    pass
+                return {"title": name} # Fallback with just the name
+
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                enriched_results = list(executor.map(fetch_movie_details, span_titles))
+                for m_data in enriched_results:
+                    if m_data:
+                        add_movie(m_data)
+        
+        return movie_list
+
+    except Exception as err:
+        logging.error("Failed to fetch movies from TMDB: %s", err)
+        return []
+
+
 def fetch_popular_and_new_anime() -> Dict[str, List[Dict[str, str]]]:
     """
     Fetch HTML from AniWorld homepage for popular and new anime parsing.

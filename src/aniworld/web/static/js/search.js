@@ -13,13 +13,32 @@ export const Search = {
         popularAnimeGrid: document.getElementById('popular-anime-grid'),
         newAnimeGrid: document.getElementById('new-anime-grid'),
         popularNewSections: document.getElementById('popular-new-sections'),
-        homeLoading: document.getElementById('home-loading')
+        homeLoading: document.getElementById('home-loading'),
+        filterSection: document.getElementById('filter-section'),
+        resultsCount: document.getElementById('results-count')
+    },
+
+    currentResults: [],
+    currentFilter: 'all',
+
+    init() {
+        // Filter button listeners
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.currentFilter = btn.dataset.filter;
+                this.applyFilter();
+            });
+        });
     },
 
     async performSearch() {
         const query = this.elements.searchInput.value.trim();
         if (!query) {
             UI.showHomeContent();
+            if (this.elements.filterSection) this.elements.filterSection.style.display = 'none';
             return;
         }
 
@@ -28,6 +47,7 @@ export const Search = {
         siteRadios.forEach(r => { if(r.checked) selectedSite = r.value; });
 
         UI.showLoadingState();
+        if (this.elements.filterSection) this.elements.filterSection.style.display = 'none';
         this.elements.searchBtn.disabled = true;
         this.elements.searchBtn.textContent = 'Searching...';
 
@@ -35,7 +55,9 @@ export const Search = {
             const data = await API.search(query, selectedSite);
             if (!data) return;
             if (data.success) {
-                this.displaySearchResults(data.results);
+                this.currentResults = data.results;
+                this.applyFilter(); // This calls displaySearchResults
+                if (this.elements.filterSection) this.elements.filterSection.style.display = 'flex';
             } else {
                 showNotification(data.error || 'Search failed', 'error');
                 UI.showEmptyState();
@@ -54,6 +76,7 @@ export const Search = {
     displaySearchResults(results) {
         if (!results || results.length === 0) {
             UI.showEmptyState();
+            if (this.elements.resultsCount) this.elements.resultsCount.textContent = 'No results found';
             return;
         }
         this.elements.resultsContainer.innerHTML = '';
@@ -61,7 +84,20 @@ export const Search = {
             const animeCard = this.createAnimeCard(anime);
             this.elements.resultsContainer.appendChild(animeCard);
         });
+        if (this.elements.resultsCount) {
+            this.elements.resultsCount.textContent = `Found ${results.length} result(s)`;
+        }
         UI.showResultsSection();
+    },
+
+    applyFilter() {
+        let filtered = this.currentResults;
+        if (this.currentFilter === 'series') {
+            filtered = this.currentResults.filter(r => r.site !== 'tmdb');
+        } else if (this.currentFilter === 'movies') {
+            filtered = this.currentResults.filter(r => r.site === 'tmdb');
+        }
+        this.displaySearchResults(filtered);
     },
 
     createAnimeCard(anime) {
@@ -69,7 +105,12 @@ export const Search = {
         card.className = 'anime-card';
         
         let coverUrl = '';
-        if (anime.cover) {
+        if (anime.site === 'tmdb') {
+            // TMDB Poster URL format
+            if (anime.cover) {
+                coverUrl = `https://image.tmdb.org/t/p/w1280${anime.cover}`;
+            }
+        } else if (anime.cover) {
             coverUrl = anime.cover;
             if (!coverUrl.startsWith('http')) {
                 const baseUrl = anime.site === 's.to' ? 'https://s.to' : 'https://aniworld.to';
@@ -80,15 +121,23 @@ export const Search = {
             coverUrl = coverUrl.replace("150x225", "220x330");
         }
 
+        const isMovie = anime.site === 'tmdb';
+
         card.innerHTML = `
             <div class="anime-card-poster">
                 ${coverUrl ? `<img src="${coverUrl}" alt="${escapeHtml(anime.title)}">` : `<div class="no-poster"><i class="fas fa-film"></i></div>`}
+                ${anime.rating ? `<div class="card-rating"><i class="fas fa-star"></i> ${anime.rating.toFixed(1)}</div>` : ''}
             </div>
             <div class="anime-card-content">
                 <div class="anime-title">${escapeHtml(anime.title)}</div>
                 <div class="anime-info">
-                    <span class="site-badge ${escapeHtml(anime.site || 'aniworld.to').replace('.', '-')}">${escapeHtml(anime.site || 'aniworld.to')}</span><br>
-                    <strong>Slug:</strong> ${escapeHtml(anime.slug || 'Unknown')}<br>
+                    <span class="site-badge ${escapeHtml(anime.site || 'aniworld.to').replace('.', '-')}">${escapeHtml(anime.site || 'aniworld.to')}</span>
+                    ${anime.release_date ? `<span class="release-date"><i class="far fa-calendar-alt"></i> ${escapeHtml(anime.release_date)}</span>` : ''}
+                    <br>
+                    ${isMovie ? `<strong>Type:</strong> Movie<br>` : `<strong>Slug:</strong> ${escapeHtml(anime.slug || 'Unknown')}<br>`}
+                </div>
+                <div class="anime-description">
+                    ${escapeHtml(anime.description || 'No description available.')}
                 </div>
                 <div class="anime-actions">
                     <button class="download-btn">
@@ -99,20 +148,23 @@ export const Search = {
             </div>
         `;
 
-        card.querySelector('.download-btn').addEventListener('click', (e) => {
-            const btn = e.currentTarget;
-            if (btn.classList.contains('loading')) return;
+        const downloadBtn = card.querySelector('.download-btn');
+        if (downloadBtn) {
+            downloadBtn.addEventListener('click', (e) => {
+                const btn = e.currentTarget;
+                if (btn.classList.contains('loading')) return;
 
-            if (window.showDownloadModal) {
-                btn.classList.add('loading');
-                const text = btn.querySelector('.btn-text');
-                const loader = btn.querySelector('.btn-loader');
-                if (text) text.style.display = 'none';
-                if (loader) loader.style.display = 'inline-block';
+                if (window.showDownloadModal) {
+                    btn.classList.add('loading');
+                    const text = btn.querySelector('.btn-text');
+                    const loader = btn.querySelector('.btn-loader');
+                    if (text) text.style.display = 'none';
+                    if (loader) loader.style.display = 'inline-block';
 
-                window.showDownloadModal(anime.title, 'Series', anime.url);
-            }
-        });
+                    window.showDownloadModal(anime.title, 'Series', anime.url);
+                }
+            });
+        }
         return card;
     },
 
@@ -151,3 +203,6 @@ export const Search = {
         return card;
     }
 };
+
+// Initialize search listeners
+Search.init();

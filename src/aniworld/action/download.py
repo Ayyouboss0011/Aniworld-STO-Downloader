@@ -47,18 +47,22 @@ def _format_bytes(bytes_value: int) -> str:
 
 def _format_episode_title(anime: Anime, episode) -> str:
     """Format episode title for logging - matches the actual filename format."""
-    if episode.season == 0:
-        return f"{anime.title} - Movie {episode.episode:03} - ({anime.language}).mp4"
-    return f"{anime.title} - S{episode.season:02}E{episode.episode:03} - ({anime.language}).mp4"
+    season = episode.season if episode.season is not None else 0
+    ep_num = episode.episode if episode.episode is not None else 1
+    if season == 0:
+        return f"{anime.title} - Movie {ep_num:03} - ({anime.language}).mp4"
+    return f"{anime.title} - S{season:02}E{ep_num:03} - ({anime.language}).mp4"
 
 
 def _get_output_filename(anime: Anime, episode, sanitized_title: str) -> str:
     """Generate output filename based on episode type."""
-    if episode.season == 0:
+    season = episode.season if episode.season is not None else 0
+    ep_num = episode.episode if episode.episode is not None else 1
+    if season == 0:
         return (
-            f"{sanitized_title} - Movie {episode.episode:03} - ({anime.language}).mp4"
+            f"{sanitized_title} - Movie {ep_num:03} - ({anime.language}).mp4"
         )
-    return f"{sanitized_title} - S{episode.season:02}E{episode.episode:03} - ({anime.language}).mp4"
+    return f"{sanitized_title} - S{season:02}E{ep_num:03} - ({anime.language}).mp4"
 
 
 def _build_ytdl_options(

@@ -49,7 +49,13 @@ export const Download = {
     },
 
     async showModal(animeTitle, episodeTitle, episodeUrl) {
-        let detectedSite = episodeUrl.includes('/serie/stream/') || episodeUrl.includes('186.2.175.5') ? 's.to' : 'aniworld.to';
+        let detectedSite = 'aniworld.to';
+        if (episodeUrl.includes('/serie/stream/') || episodeUrl.includes('186.2.175.5')) {
+            detectedSite = 's.to';
+        } else if (episodeUrl.includes('vidking.net')) {
+            detectedSite = 'vidking';
+        }
+        
         this.state.currentDownloadData = { anime: animeTitle, episode: episodeTitle, url: episodeUrl, site: detectedSite };
         this.state.selectedEpisodes.clear();
         this.state.availableEpisodes = {};
@@ -213,6 +219,39 @@ export const Download = {
             this.elements.trackCheckbox.dataset.listenerAdded = 'true';
         }
         this.elements.episodeTree.innerHTML = '';
+
+        // Special handling for VidKing movies
+        if (this.state.currentDownloadData.site === 'vidking') {
+            const movieItem = document.createElement('div');
+            movieItem.className = 'episode-item-tree selected';
+            movieItem.style.padding = '15px';
+            movieItem.style.background = 'var(--active-bg)';
+            
+            const movieUrl = this.state.currentDownloadData.url;
+            this.state.selectedEpisodes.add('0-1');
+            this.state.availableEpisodes = { 0: [{ season: 0, episode: 1, title: 'Movie', url: movieUrl }] };
+            this.state.episodeLanguageSelections[movieUrl] = 'German Sub';
+            this.state.episodeProviderSelections[movieUrl] = 'VidKing';
+
+            movieItem.innerHTML = `
+                <div class="episode-checkbox-wrapper">
+                    <input type="checkbox" class="episode-checkbox" id="episode-0-1" checked disabled>
+                    <label for="episode-0-1" class="episode-label">Movie Stream (VidKing)</label>
+                </div>
+                <div class="episode-lang-wrapper">
+                    <div class="episode-lang-badges">
+                        <span class="lang-badge active">m3u8</span>
+                    </div>
+                    <div class="episode-provider-badges">
+                        <span class="provider-badge active">VidKing</span>
+                    </div>
+                </div>
+            `;
+            this.elements.episodeTree.appendChild(movieItem);
+            this.updateSelectedCount();
+            return;
+        }
+
         const episodesToVerify = [];
         const seasons = Object.keys(this.state.availableEpisodes).sort((a, b) => Number(a) - Number(b));
 

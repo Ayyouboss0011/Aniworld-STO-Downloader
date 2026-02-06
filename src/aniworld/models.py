@@ -1191,6 +1191,16 @@ class Episode:
         if language:
             self._selected_language = language
 
+        # SPECIAL CASE: VidKing
+        if (self.link and "vidking.net" in self.link) or self._selected_provider == "VidKing":
+            try:
+                from .extractors.provider.vidking import get_direct_link_from_vidking
+                self.direct_link = get_direct_link_from_vidking(self.link)
+                return self.direct_link
+            except Exception as e:
+                logging.error("Error getting direct link from VidKing: %s", e)
+                return None
+
         # Validate selected provider
         if self._selected_provider not in SUPPORTED_PROVIDERS:
             logging.error("Provider '%s' is not supported", self._selected_provider)
@@ -1320,10 +1330,16 @@ class Episode:
                 and self.episode is not None
             ):
                 if self.season == 0:  # Movie
-                    self.link = (
-                        f"{self.base_url}/{self.stream_path}/{self.slug}/filme/"
-                        f"film-{self.episode}"
-                    )
+                    # Check for VidKing/TMDB source
+                    if self.slug.startswith("vidking:"):
+                        tmdb_id = self.slug.split(":")[1]
+                        self.link = f"https://www.vidking.net/embed/movie/{tmdb_id}"
+                        self._selected_provider = "VidKing"
+                    else:
+                        self.link = (
+                            f"{self.base_url}/{self.stream_path}/{self.slug}/filme/"
+                            f"film-{self.episode}"
+                        )
                 else:  # Regular episode
                     self.link = (
                         f"{self.base_url}/{self.stream_path}/{self.slug}/"
@@ -1332,6 +1348,24 @@ class Episode:
 
             # Extract components from link if missing (no HTTP requests)
             if self.link:
+                # Handle VidKing URLs first
+                if "vidking.net" in self.link:
+                    tmdb_id = self.link.split("/")[-1]
+                    if not self.slug:
+                        # Clean tmdb_id if it still contains "vidking:"
+                        tmdb_id = tmdb_id.replace("vidking:", "")
+                        self.slug = f"vidking:{tmdb_id}"
+                    if self.season is None:
+                        self.season = 0
+                    if self.episode is None:
+                        try:
+                            self.episode = int(tmdb_id)
+                        except ValueError:
+                            self.episode = 1
+                    self._selected_provider = "VidKing"
+                    self._basic_details_filled = True
+                    return
+
                 if not self.slug:
                     try:
                         # Improved slug extraction for different path structures

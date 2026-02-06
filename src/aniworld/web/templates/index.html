@@ -89,8 +89,12 @@
                         <span class="radio-label">S.to</span>
                     </label>
                     <label class="site-option">
+                        <input type="radio" name="site" value="movies" id="site-movies">
+                        <span class="radio-label">Movies</span>
+                    </label>
+                    <label class="site-option">
                         <input type="radio" name="site" value="both" id="site-both" checked>
-                        <span class="radio-label">Both</span>
+                        <span class="radio-label">All</span>
                     </label>
                 </div>
                 <div class="search-container">
@@ -99,9 +103,18 @@
                 </div>
             </div>
 
+            <div class="filter-section" id="filter-section" style="display: none; justify-content: center; margin-bottom: 1.5rem; gap: 1rem;">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="series">Series</button>
+                <button class="filter-btn" data-filter="movies">Movies</button>
+            </div>
+
 
             <div class="results-section" id="results-section">
-                <h3>Search Results</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h3 style="margin-bottom: 0;">Search Results</h3>
+                    <div id="results-count" style="color: var(--text-tertiary); font-size: 0.9rem;"></div>
+                </div>
                 <div id="results-container" class="results-container">
                     <!-- Search results will be populated here -->
                 </div>
