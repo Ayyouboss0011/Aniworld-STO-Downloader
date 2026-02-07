@@ -52,8 +52,12 @@ export const Download = {
         let detectedSite = 'aniworld.to';
         if (episodeUrl.includes('/serie/stream/') || episodeUrl.includes('186.2.175.5')) {
             detectedSite = 's.to';
-        } else if (episodeUrl.includes('vidking.net')) {
-            detectedSite = 'vidking';
+        } else if (episodeUrl.includes('vidking.net') || episodeUrl.includes('movie4k')) {
+            detectedSite = 'movie4k';
+        } else if (episodeUrl.includes('hdfilme.press')) {
+            // HDFilme handling removed/redirected to Movie4k if needed, but for now just label as movie4k if it matches logic
+            // User requested removal of HDFilme.
+            detectedSite = 'movie4k'; 
         }
         
         this.state.currentDownloadData = { anime: animeTitle, episode: episodeTitle, url: episodeUrl, site: detectedSite };
@@ -74,7 +78,7 @@ export const Download = {
         } catch (err) { console.error('Failed to load download path:', err); }
 
         try {
-            const data = await API.getEpisodes(episodeUrl);
+            const data = await API.getEpisodes(episodeUrl, animeTitle);
             if (data.success) {
                 this.state.availableEpisodes = data.episodes;
                 this.state.availableMovies = data.movies || [];
@@ -220,36 +224,30 @@ export const Download = {
         }
         this.elements.episodeTree.innerHTML = '';
 
-        // Special handling for VidKing movies
-        if (this.state.currentDownloadData.site === 'vidking') {
+        // Special handling for Movie4k movies (replacing VidKing/HDFilme)
+        if (this.state.currentDownloadData.site === 'movie4k') {
             const movieItem = document.createElement('div');
             movieItem.className = 'episode-item-tree selected';
             movieItem.style.padding = '15px';
             movieItem.style.background = 'var(--active-bg)';
             
-            const movieUrl = this.state.currentDownloadData.url;
-            this.state.selectedEpisodes.add('0-1');
-            this.state.availableEpisodes = { 0: [{ season: 0, episode: 1, title: 'Movie', url: movieUrl }] };
-            this.state.episodeLanguageSelections[movieUrl] = 'German Sub';
-            this.state.episodeProviderSelections[movieUrl] = 'VidKing';
-
-            movieItem.innerHTML = `
-                <div class="episode-checkbox-wrapper">
-                    <input type="checkbox" class="episode-checkbox" id="episode-0-1" checked disabled>
-                    <label for="episode-0-1" class="episode-label">Movie Stream (VidKing)</label>
-                </div>
-                <div class="episode-lang-wrapper">
-                    <div class="episode-lang-badges">
-                        <span class="lang-badge active">m3u8</span>
-                    </div>
-                    <div class="episode-provider-badges">
-                        <span class="provider-badge active">VidKing</span>
-                    </div>
-                </div>
-            `;
-            this.elements.episodeTree.appendChild(movieItem);
-            this.updateSelectedCount();
-            return;
+            // Note: In Movie4k flow, api/episodes returns availableEpisodes properly populated with languages
+            // so we don't need to manually construct it here usually, UNLESS api/episodes failed or we want to force display
+            // But let's assume api/episodes returns a structure.
+            
+            // However, typical behavior for these "special" sites was to bypass api/episodes or assume it returns nothing useful?
+            // Wait, api/episodes will be updated to return the Movie4k episode with languages.
+            // So we can probably let the standard rendering loop handle it below!
+            // But standard loop expects seasons. Movie4k returns a single movie (Season 0).
+            // Let's check if availableEpisodes is populated.
+            
+            if (this.state.availableEpisodes && Object.keys(this.state.availableEpisodes).length > 0) {
+                 // Proceed to standard rendering
+            } else {
+                 // Fallback or error
+                 this.elements.episodeTree.innerHTML = '<div style="padding: 20px; text-align: center;">Movie not found in Movie4k database.</div>';
+                 return;
+            }
         }
 
         const episodesToVerify = [];

@@ -100,6 +100,7 @@ export const Queue = {
             qItem.dataset.id = item.id;
             const prog = Math.min(100, item.progress_percentage || 0);
             const isCompleted = item.status === 'completed' || item.status === 'failed';
+            const isMovie = item.is_movie === true;
             
             qItem.innerHTML = `
                 <div class="queue-item-header">
@@ -109,6 +110,7 @@ export const Queue = {
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <div class="queue-item-status ${item.status}">${item.status}</div>
+                        ${!isCompleted && isMovie ? `<button class="change-server-btn" data-id="${item.id}" title="Switch to next download server"><i class="fas fa-exchange-alt"></i> Switch Server</button>` : ''}
                         ${!isCompleted ? `<button class="stop-download-btn" data-id="${item.id}" title="Stop Download"><i class="fas fa-stop"></i></button>` : ''}
                         ${isCompleted ? `<button class="delete-download-btn" data-id="${item.id}" title="Remove from history"><i class="fas fa-trash"></i></button>` : ''}
                     </div>
@@ -134,7 +136,12 @@ export const Queue = {
             });
 
             if (!isCompleted) {
-                qItem.querySelector('.stop-download-btn')?.addEventListener('click', () => {
+                qItem.querySelector('.change-server-btn')?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.executeChangeServer(item.id);
+                });
+                qItem.querySelector('.stop-download-btn')?.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Stop expansion
                     this.state.currentQueueIdToCancel = item.id;
                     if (this.elements.stopModal) this.elements.stopModal.style.display = 'flex';
                 });
@@ -284,5 +291,21 @@ export const Queue = {
                 this.updateDisplay();
             }
         } catch (err) { console.error('Cancel error:', err); }
+    },
+
+    async executeChangeServer(queueId) {
+        try {
+            const data = await API.skipDownloadCandidate(queueId);
+            if (data.success) {
+                showNotification('Switching to next server...', 'info');
+                // Force update immediately
+                this.updateDisplay();
+            } else {
+                showNotification(data.error || 'Failed to switch server', 'error');
+            }
+        } catch (err) {
+            console.error('Change server error:', err);
+            showNotification('Failed to switch server', 'error');
+        }
     }
 };

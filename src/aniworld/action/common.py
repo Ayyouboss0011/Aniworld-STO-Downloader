@@ -23,7 +23,9 @@ def format_episode_title(anime, episode) -> str:
     Create a formatted title string for logging or printing.
     Example: "Naruto - S01E03 - (German Sub):"
     """
-    return f"{anime.title} - S{episode.season}E{episode.episode} - ({anime.language}):"
+    # Use episode._selected_language as it might have fallen back to another language
+    lang = episode._selected_language if hasattr(episode, "_selected_language") else anime.language
+    return f"{anime.title} - S{episode.season}E{episode.episode} - ({lang}):"
 
 
 def get_media_title(anime, episode, sanitized_title: str) -> str:
@@ -31,9 +33,11 @@ def get_media_title(anime, episode, sanitized_title: str) -> str:
     Create the media filename title based on episode type.
     If it's a movie (season == 0), format differently.
     """
+    # Use episode._selected_language as it might have fallen back to another language
+    lang = episode._selected_language if hasattr(episode, "_selected_language") else anime.language
     if episode.season == 0:
-        return f"{sanitized_title} - Movie {episode.episode:03} - ({anime.language})"
-    return f"{sanitized_title} - S{episode.season:02}E{episode.episode:03} - ({anime.language})"
+        return f"{sanitized_title} - Movie {episode.episode:03} - ({lang})"
+    return f"{sanitized_title} - S{episode.season:02}E{episode.episode:03} - ({lang})"
 
 
 def get_direct_link(episode, episode_title: str) -> Optional[str]:

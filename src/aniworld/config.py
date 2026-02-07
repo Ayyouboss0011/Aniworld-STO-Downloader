@@ -26,7 +26,7 @@ S_TO = "https://s.to"
 # Supported streaming sites with their URL patterns
 SUPPORTED_SITES = {
     "aniworld.to": {"base_url": ANIWORLD_TO, "stream_path": "anime/stream"},
-    "s.to": {"base_url": S_TO, "stream_path": "serie/stream"},
+    "s.to": {"base_url": S_TO, "stream_path": "serie"},
 }
 
 #########################################################################################
@@ -212,6 +212,8 @@ SUPPORTED_PROVIDERS = (
     "SpeedFiles",
     "Streamtape",
     "VidKing",
+    "HDFilme",
+    "Strmup",
 )
 
 #########################################################################################

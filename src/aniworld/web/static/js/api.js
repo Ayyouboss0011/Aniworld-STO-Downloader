@@ -31,11 +31,11 @@ const API = {
         return await res.json();
     },
 
-    async getEpisodes(series_url) {
+    async getEpisodes(series_url, title = null) {
         const res = await fetch('/api/episodes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ series_url })
+            body: JSON.stringify({ series_url, title })
         });
         return await res.json();
     },
@@ -131,6 +131,13 @@ const API = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ episode_url: episodeUrl })
+        });
+        return await res.json();
+    },
+
+    async skipDownloadCandidate(queueId) {
+        const res = await fetch(`/api/download/${queueId}/skip`, {
+            method: 'POST'
         });
         return await res.json();
     }

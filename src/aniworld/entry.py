@@ -93,17 +93,33 @@ def _group_episodes_by_series(links: List[str]) -> List[Anime]:
             try:
                 if "vidking.net" in link:
                     series_slug = f"vidking:{parts[-1]}"
+                elif "hdfilme.press" in link:
+                    # For HDFilme, the slug is the movie identifier in the URL
+                    # e.g., https://hdfilme.press/filme1/40680-zoomania-2-stream.html -> 40680-zoomania-2-stream.html
+                    series_slug = parts[-1]
                 elif "stream" in parts:
                     series_slug = parts[parts.index("stream") + 1]
                 elif "serie" in parts:
                     series_slug = parts[parts.index("serie") + 1]
                 else:
-                    raise ValueError("Neither 'stream' nor 'serie' found in URL")
+                    # Fallback for direct links or Movie4k resolved links
+                    # Use the last part of the URL or the whole URL hash
+                    series_slug = parts[-1]
             except (ValueError, IndexError):
-                logging.warning("Invalid episode link format: %s", link)
-                continue
+                # Fallback for any other format
+                series_slug = link.split("/")[-1]
+                # logging.warning("Invalid episode link format: %s", link)
+                # continue
 
             site = _detect_site_from_url(link)
+            
+            # Treat HDFilme as a distinct site to avoid grouping issues
+            if "hdfilme.press" in link:
+                site = "hdfilme.press"
+            
+            # Detect Movie4k resolved links (direct provider links mostly)
+            # If site detection failed (returned default aniworld), check if it's a provider link
+            # For now we rely on the fact that Episode class will handle the direct link
 
             if series_slug != current_anime:
                 if episode_list:
@@ -117,7 +133,12 @@ def _group_episodes_by_series(links: List[str]) -> List[Anime]:
                     episode_list = []
                 current_anime = series_slug
 
-            episode_list.append(Episode(link=link, site=site))
+            # Create episode with manual slug for Movie4k to avoid extraction failure
+            episode = Episode(link=link, site=site)
+            if "movie4k:" in link:
+                episode.slug = series_slug
+            
+            episode_list.append(episode)
 
     if episode_list:
         # Get the site from the first episode in the list

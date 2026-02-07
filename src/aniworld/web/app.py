@@ -9,12 +9,15 @@ import threading
 import webbrowser
 from datetime import datetime
 from functools import wraps
+from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 
 from .. import config
 from ..models import Episode
 from .database import UserDatabase
 from .download_manager import get_download_manager
+from ..movie4k.movie4k import Movie4kAPI
+from ..movie4k.movie4k_stream_finder import hole_sprachliste, hole_stream_daten
 
 
 class WebApp:
@@ -564,12 +567,16 @@ class WebApp:
                         # Add movies first (as they are usually most specific)
                         for movie in movie_results:
                             movie["site"] = "tmdb"
-                            movie["base_url"] = "https://www.vidking.net"
-                            movie["stream_path"] = "embed/movie"
-                            # Construct the VidKing slug using the TMDB ID
+                            # We use Movie4k for movies now
+                            movie["base_url"] = "https://movie4k.sx"
+                            movie["stream_path"] = ""
+                            # We will use the title to search in Movie4k later
                             tmdb_id = movie.get("id")
                             if tmdb_id:
-                                movie["link"] = f"vidking:{tmdb_id}"
+                                # We keep vidking ID for reference or change to movie4k prefix
+                                # But actually frontend uses this link to call api_episodes
+                                # api_episodes will handle the search by title.
+                                movie["link"] = f"movie4k:{tmdb_id}"
                             all_results.append(movie)
 
                         # Add aniworld results
@@ -618,12 +625,12 @@ class WebApp:
                             results = search_tmdb_movies(keyword)
                             for movie in results:
                                 movie["site"] = "tmdb"
-                                movie["base_url"] = "https://www.vidking.net"
-                                movie["stream_path"] = "embed/movie"
+                                movie["base_url"] = "https://movie4k.sx"
+                                movie["stream_path"] = ""
                                 # Construct the VidKing slug using the TMDB ID
                                 tmdb_id = movie.get("id")
                                 if tmdb_id:
-                                    movie["link"] = f"vidking:{tmdb_id}"
+                                    movie["link"] = f"movie4k:{tmdb_id}"
                             return results
                         except Exception as e:
                             logging.error(f"TMDB search failed: {e}")
@@ -673,7 +680,7 @@ class WebApp:
                         title = f"{name} {year}"
                     else:
                         title = name
-
+                    
                     processed_anime = {
                         "title": title,
                         "url": full_url,
@@ -768,6 +775,9 @@ class WebApp:
 
                 language = data.get("language", "German Sub")
                 provider = data.get("provider", "VOE")
+                
+                # Get per-episode configuration
+                episodes_config = data.get("episodes_config") or {}
 
                 # DEBUG: Log received parameters
                 logging.debug(
@@ -808,9 +818,6 @@ class WebApp:
                             "error": "No valid anime objects could be created from provided URLs",
                         }
                     ), 400
-
-                # Get per-episode configuration
-                episodes_config = data.get("episodes_config")
 
                 # Add to download queue
                 queue_id = self.download_manager.add_download(
@@ -945,6 +952,19 @@ class WebApp:
                 logging.error(f"Failed to stop episode for job {queue_id}: {e}")
                 return jsonify({"success": False, "error": str(e)}), 500
 
+        @self.app.route("/api/download/<int:queue_id>/skip", methods=["POST"])
+        @self._require_api_auth
+        def api_skip_download_candidate(queue_id):
+            """Skip current download server/candidate."""
+            try:
+                if self.download_manager.skip_current_candidate(queue_id):
+                    return jsonify({"success": True, "message": "Skipping to next server..."})
+                else:
+                    return jsonify({"success": False, "error": "Failed to skip (check if download is running)"}), 400
+            except Exception as e:
+                logging.error(f"Failed to skip candidate for job {queue_id}: {e}")
+                return jsonify({"success": False, "error": str(e)}), 500
+
         @self.app.route("/api/download-path", methods=["GET", "POST"])
         @self._require_api_auth
         def api_download_path():
@@ -1036,9 +1056,10 @@ class WebApp:
                     ), 400
 
                 series_url = data["series_url"]
+                title = data.get("title")
 
                 # Create wrapper function to handle all logic
-                def get_episodes_for_series(series_url):
+                def get_episodes_for_series(series_url, title=None):
                     """Wrapper function using existing functions to get episodes and movies"""
                     from ..common import (
                         get_season_episode_count,
@@ -1047,10 +1068,98 @@ class WebApp:
                     )
                     from ..entry import _detect_site_from_url
                     from .. import config
+                    from ..movie4k.movie4k import Movie4kAPI
+                    from ..movie4k.movie4k_stream_finder import hole_sprachliste
 
-                    # Special handling for VidKing URLs
-                    if "vidking.net" in series_url:
-                        return {}, [], series_url.split("/")[-1]
+                    # Handle Movie4k search (triggered by movie4k prefix or title context from TMDB)
+                    if "movie4k:" in series_url or "vidking" in series_url:
+                        # We need to search by title
+                        # If title is not provided, try to search by ID? 
+                        # Movie4k doesn't support search by TMDB ID directly.
+                        # We rely on the title passed from frontend.
+                        
+                        search_term = title
+                        if not search_term and "movie4k:" in series_url:
+                            # Fallback: URL might contain ID, but we need title for search...
+                            # Actually we can't search by ID.
+                            # If no title, we return error or empty.
+                            pass
+
+                        if search_term:
+                            try:
+                                api = Movie4kAPI()
+                                # Search for the movie
+                                results = api.search_movies_by_title(search_term)
+                                
+                                if results and results.get("movies"):
+                                    # Improved matching logic: Prefer exact title match
+                                    movies = results["movies"]
+                                    movie = movies[0]  # Default to first result
+                                    
+                                    # Search for exact match (case-insensitive)
+                                    search_lower = search_term.lower().strip()
+                                    for m in movies:
+                                        if m.get("title", "").lower().strip() == search_lower:
+                                            movie = m
+                                            break
+                                    
+                                    movie_id = movie["_id"]
+                                    movie_title = movie["title"]
+                                    
+                                    # Get languages
+                                    languages = hole_sprachliste(movie_id)
+                                    
+                                    if languages:
+                                        # Fetch stream counts for each language in parallel
+                                        def get_lang_count(lang_item, index):
+                                            try:
+                                                s_data = hole_stream_daten(lang_item["_id"])
+                                                count = len(s_data.get("streams", [])) if s_data else 0
+                                                return index, count
+                                            except:
+                                                return index, 0
+
+                                        lang_counts = {}
+                                        with ThreadPoolExecutor(max_workers=5) as executor:
+                                            futures = [executor.submit(get_lang_count, l, i) for i, l in enumerate(languages, 1)]
+                                            for future in futures:
+                                                idx, count = future.result()
+                                                lang_counts[idx] = count
+
+                                        # Construct episodes structure
+                                        # Single movie = Season 0, Episode 1 (or similar)
+                                        # We map languages to "Language ID X"
+                                        
+                                        lang_names = []
+                                        lang_codes = []
+                                        
+                                        for idx, lang in enumerate(languages, 1):
+                                            count = lang_counts.get(idx, 0)
+                                            lang_names.append(f"Language ID {idx} ({count} streams)")
+                                            # We store the index or something in code, but really we re-fetch later
+                                            lang_codes.append(str(idx)) 
+                                            
+                                        episodes_by_season = {
+                                            0: [{
+                                                "season": 0,
+                                                "episode": 1,
+                                                "title": movie_title,
+                                                "url": f"movie4k:{movie_id}",
+                                                "languages": lang_names,
+                                                "language_codes": lang_codes,
+                                                "providers": ["Auto"] # Placeholder
+                                            }]
+                                        }
+                                        return episodes_by_season, [], f"movie4k-{movie_id}"
+                            except Exception as e:
+                                logging.error(f"Movie4k search failed: {e}")
+                        
+                        return {}, [], "movie4k-not-found"
+
+                    # Special handling for HDFilme URLs - Removed/Deprecated
+                    if "hdfilme.press" in series_url:
+                        # return {}, [], "hdfilme"
+                        pass
 
                     # Extract slug and site using existing functions
                     _site = _detect_site_from_url(series_url)
@@ -1148,7 +1257,7 @@ class WebApp:
                 # Use the wrapper function
                 try:
                     episodes_by_season, movies, slug = get_episodes_for_series(
-                        series_url
+                        series_url, title
                     )
                 except ValueError as e:
                     return jsonify({"success": False, "error": str(e)}), 400

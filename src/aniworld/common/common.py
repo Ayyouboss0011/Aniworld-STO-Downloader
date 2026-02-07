@@ -650,7 +650,7 @@ def _parse_season_episodes_details(soup: BeautifulSoup, season: int) -> List[Dic
 def get_season_episodes_details(slug: str, link: str = ANIWORLD_TO) -> Dict[int, List[Dict]]:
     """
     Get detailed episode info (including languages) for each season.
-    
+
     Args:
         slug: Anime slug from URL
         link: Base Url
@@ -670,7 +670,11 @@ def get_season_episodes_details(slug: str, link: str = ANIWORLD_TO) -> Dict[int,
             if link.startswith("http") and slug in link:
                 base_url = link.rstrip("/")
             else:
-                base_url = f"{S_TO}/serie/stream/{slug}"
+                # For s.to, don't add /serie/stream/ if slug already contains /serie/
+                if slug.startswith("serie/"):
+                    base_url = f"{S_TO}/{slug}"
+                else:
+                    base_url = f"{S_TO}/serie/stream/{slug}"
 
         response = _make_request(base_url)
         # Use final URL after redirects for subsequent requests

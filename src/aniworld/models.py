@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Tuple, Any
 
 import requests
 import requests.models
+import yt_dlp
 from bs4 import BeautifulSoup
 
 from .aniskip import get_mal_id_from_title
@@ -176,8 +177,17 @@ class Anime:
         if self._html_cache is None:
             try:
                 headers = DEFAULT_HEADERS.copy()
+                
+                # Construct URL based on site
+                if self.site == "s.to":
+                    # s.to main series page is at /serie/SLUG
+                    url = f"{self.base_url}/serie/{self.slug}"
+                else:
+                    # aniworld.to is at /anime/stream/SLUG
+                    url = f"{self.base_url}/{self.stream_path}/{self.slug}"
+                    
                 self._html_cache = requests.get(
-                    f"{self.base_url}/{self.stream_path}/{self.slug}",
+                    url,
                     timeout=DEFAULT_REQUEST_TIMEOUT,
                     headers=headers,
                     allow_redirects=True,
@@ -839,19 +849,23 @@ class Episode:
 
             # Handle s.to structure (new and legacy)
             if self.site == "s.to":
-                # 1. New Link-box structure
+                # 1. New Link-box structure (v4 layout)
                 provider_buttons = soup.find_all("button", class_="link-box")
                 for button in provider_buttons:
                     redirect_path = button.get("data-play-url")
                     lang_key_str = button.get("data-language-id")
                     
                     provider_name = None
-                    provider_name_span = button.find("span", class_="ms-1")
+                    # Try different span classes or text content
+                    provider_name_span = button.find("span", class_="ms-1") or button.find("span", class_="provider-name")
                     if provider_name_span:
                         provider_name = provider_name_span.get_text(strip=True)
                     else:
-                        full_text = button.get_text(strip=True)
-                        provider_name = full_text
+                        # Fallback to direct button text
+                        provider_name = button.get_text(strip=True)
+                    
+                    if provider_name:
+                        provider_name = self._normalize_provider_name(provider_name)
 
                     if redirect_path and lang_key_str and lang_key_str.isdigit() and provider_name:
                         lang_key = int(lang_key_str)
@@ -859,25 +873,45 @@ class Episode:
                         if provider_name not in providers: providers[provider_name] = {}
                         providers[provider_name][lang_key] = redirect_url
 
-                # 2. Try 'hoster-nav' structure (Alternative s.to layout)
+                # 2. Try 'hoster-nav' structure (Alternative s.to layout / legacy v3)
                 if not providers:
-                    hoster_tabs = soup.find_all("li", class_="hoster-tab")
+                    # Check for links inside .hoster-nav or directly in list items
+                    hoster_tabs = soup.find_all("li", class_=re.compile(r"hoster-tab|episodeLink"))
                     for tab in hoster_tabs:
                         link = tab.find("a", href=True)
                         if link:
                             # Usually contains provider name in text or img alt
                             provider_name = link.get_text(strip=True)
                             img = link.find("img")
-                            if img and img.get("alt"): provider_name = img["alt"]
+                            if img and img.get("alt"):
+                                provider_name = img["alt"]
+                            
+                            if provider_name:
+                                provider_name = self._normalize_provider_name(provider_name)
                             
                             redirect_path = link["href"]
-                            # Language might be in a separate tab or data attribute
-                            lang_key = 1 # Default to German for now if not found
+                            
+                            # Try to extract language key from parent element or data attributes
+                            lang_key_str = tab.get("data-lang-key") or link.get("data-lang-key")
+                            if not lang_key_str:
+                                # Fallback: check if we're in a specific language section
+                                parent_section = tab.find_parent("div", class_="changeLanguageBox")
+                                if parent_section:
+                                    # This is a bit more complex, for now we try to find the active language icon
+                                    pass
+                            
+                            lang_key = int(lang_key_str) if lang_key_str and lang_key_str.isdigit() else 1
                             
                             if provider_name and redirect_path:
                                 redirect_url = f"{self.base_url}{redirect_path}"
                                 if provider_name not in providers: providers[provider_name] = {}
                                 providers[provider_name][lang_key] = redirect_url
+                                
+                # 3. Handle cases where multiple languages are available but not correctly attributed
+                if providers and self.site == "s.to":
+                    # If we only have German Dub (1) but German Sub (3) was requested, 
+                    # check if the site actually provides more info
+                    pass
 
                 if providers:
                     logging.debug(
@@ -922,6 +956,48 @@ class Episode:
             logging.error("Error extracting providers: %s", err)
             raise
 
+    def _normalize_provider_name(self, name: str) -> str:
+        """
+        Normalize provider name to match supported providers.
+        
+        Args:
+            name: Raw provider name
+            
+        Returns:
+            Normalized provider name
+        """
+        if not name:
+            return name
+            
+        name_clean = name.strip()
+        name_lower = name_clean.lower()
+        
+        # Map variations to standard names
+        if "hdfilme" in name_lower or "hd filme" in name_lower:
+            return "HDFilme"
+        if "vidking" in name_lower:
+            return "VidKing"
+        if "voe" in name_lower:
+            return "VOE"
+        if "dood" in name_lower:
+            return "Doodstream"
+        if "streamtape" in name_lower:
+            return "Streamtape"
+        if "vidoza" in name_lower:
+            return "Vidoza"
+        if "vidmoly" in name_lower:
+            return "Vidmoly"
+        if "speedfiles" in name_lower:
+            return "SpeedFiles"
+        if "luluvdo" in name_lower:
+            return "Luluvdo"
+        if "filemoon" in name_lower:
+            return "Filemoon"
+        if "loadx" in name_lower:
+            return "LoadX"
+            
+        return name_clean
+
     def _extract_provider_data(self, link_element) -> Optional[Tuple[str, int, str]]:
         """
         Extract provider data from HTML element.
@@ -938,6 +1014,8 @@ class Episode:
             provider_name = (
                 provider_name_tag.get_text(strip=True) if provider_name_tag else None
             )
+            if provider_name:
+                provider_name = self._normalize_provider_name(provider_name)
 
             # Extract redirect link
             redirect_link_tag = link_element.find("a", class_="watchEpisode")
@@ -1031,14 +1109,39 @@ class Episode:
         """
         provider = self._selected_provider
 
-        if provider not in SUPPORTED_PROVIDERS:
-            raise ValueError(
-                f"Provider '{provider}' is currently not supported. "
-                f"Supported providers: {SUPPORTED_PROVIDERS}"
-            )
-
         if not self.embeded_link:
             raise ValueError("No embedded link available for direct link extraction")
+
+        if provider not in SUPPORTED_PROVIDERS:
+            logging.info(f"Provider '{provider}' is not explicitly supported. Trying generic extraction with yt-dlp...")
+            try:
+                # Fix for known provider aliases that yt-dlp might not recognize
+                ytdl_link = self.embeded_link
+                if "m1xdrop.com" in ytdl_link:
+                    ytdl_link = ytdl_link.replace("m1xdrop.com", "mixdrop.ag")
+                    logging.info(f"Modified URL for yt-dlp (M1xdrop fix): {ytdl_link}")
+
+                ydl_opts = {
+                    'quiet': True,
+                    'no_warnings': True,
+                    'nocheckcertificate': True,
+                }
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(ytdl_link, download=False)
+                    if info and 'url' in info:
+                        logging.info(f"Successfully extracted link using yt-dlp for {provider}")
+                        return info['url']
+                    elif info and 'entries' in info and len(info['entries']) > 0:
+                        logging.info(f"Successfully extracted link (from entries) using yt-dlp for {provider}")
+                        return info['entries'][0].get('url')
+                    
+                    raise ValueError("yt-dlp could not find a direct URL")
+            except Exception as e:
+                logging.error(f"Generic extraction failed for {provider}: {e}")
+                raise ValueError(
+                    f"Provider '{provider}' is not supported and generic extraction failed. "
+                    f"Supported providers: {SUPPORTED_PROVIDERS}"
+                )
 
         try:
             module = importlib.import_module("aniworld.extractors")
@@ -1110,6 +1213,36 @@ class Episode:
             available_langs = set()
             for lang_dict in self.provider.values():
                 available_langs.update(lang_dict.keys())
+
+            # Fallback level 2: try any available language
+            if available_langs:
+                # Prioritize German Dub (1) or German Sub (3) or whatever is available
+                preferred_fallbacks = [1, 3, 2]  # German Dub, German Sub, English Dub/Sub
+                
+                fallback_lang_key = None
+                for pf in preferred_fallbacks:
+                    if pf in available_langs:
+                        fallback_lang_key = pf
+                        break
+                
+                if fallback_lang_key is None:
+                    fallback_lang_key = next(iter(available_langs))
+                
+                site_language_names = SITE_LANGUAGE_NAMES.get(self.site)
+                fallback_lang_name = site_language_names.get(fallback_lang_key, f"Unknown({fallback_lang_key})")
+                
+                for provider_name, lang_dict in self.provider.items():
+                    if fallback_lang_key in lang_dict:
+                        logging.info(
+                            "Language '%s' not found. Falling back to '%s' on site '%s'",
+                            self._selected_language,
+                            fallback_lang_name,
+                            self.site,
+                        )
+                        self._selected_language = fallback_lang_name
+                        self._selected_provider = provider_name
+                        self.redirect_link = lang_dict[fallback_lang_key]
+                        return self.redirect_link
 
             # Use site-specific language names for error message
             site_language_names = SITE_LANGUAGE_NAMES.get(self.site)
@@ -1200,11 +1333,6 @@ class Episode:
             except Exception as e:
                 logging.error("Error getting direct link from VidKing: %s", e)
                 return None
-
-        # Validate selected provider
-        if self._selected_provider not in SUPPORTED_PROVIDERS:
-            logging.error("Provider '%s' is not supported", self._selected_provider)
-            return None
 
         try:
             # Get embedded link if not already available
@@ -1336,15 +1464,29 @@ class Episode:
                         self.link = f"https://www.vidking.net/embed/movie/{tmdb_id}"
                         self._selected_provider = "VidKing"
                     else:
-                        self.link = (
-                            f"{self.base_url}/{self.stream_path}/{self.slug}/filme/"
-                            f"film-{self.episode}"
-                        )
+                        # For s.to, URLs are /serie/SLUG/filme/...
+                        if self.site == "s.to":
+                            self.link = (
+                                f"{self.base_url}/serie/{self.slug}/filme/"
+                                f"film-{self.episode}"
+                            )
+                        else:
+                            self.link = (
+                                f"{self.base_url}/{self.stream_path}/{self.slug}/filme/"
+                                f"film-{self.episode}"
+                            )
                 else:  # Regular episode
-                    self.link = (
-                        f"{self.base_url}/{self.stream_path}/{self.slug}/"
-                        f"staffel-{self.season}/episode-{self.episode}"
-                    )
+                    # For s.to, URLs are /serie/SLUG/staffel-X/...
+                    if self.site == "s.to":
+                        self.link = (
+                            f"{self.base_url}/serie/{self.slug}/"
+                            f"staffel-{self.season}/episode-{self.episode}"
+                        )
+                    else:
+                        self.link = (
+                            f"{self.base_url}/{self.stream_path}/{self.slug}/"
+                            f"staffel-{self.season}/episode-{self.episode}"
+                        )
 
             # Extract components from link if missing (no HTTP requests)
             if self.link:
@@ -1370,11 +1512,15 @@ class Episode:
                     try:
                         # Improved slug extraction for different path structures
                         parts = self.link.rstrip("/").split("/")
-                        if "stream" in parts:
+                        if "stream" in parts and parts.index("stream") + 1 < len(parts):
                             self.slug = parts[parts.index("stream") + 1]
-                        elif "serie" in parts:
-                            self.slug = parts[parts.index("serie") + 1]
-                        elif "anime" in parts:
+                        elif "serie" in parts and parts.index("serie") + 1 < len(parts):
+                            potential_slug = parts[parts.index("serie") + 1]
+                            if potential_slug != "stream":
+                                self.slug = potential_slug
+                            elif parts.index("serie") + 2 < len(parts):
+                                self.slug = parts[parts.index("serie") + 2]
+                        elif "anime" in parts and parts.index("anime") + 1 < len(parts):
                             self.slug = parts[parts.index("anime") + 1]
                         else:
                             self.slug = parts[-3]
@@ -1484,12 +1630,6 @@ class Episode:
             issues.append(
                 f"Invalid selected language: {self._selected_language} for site: {self.site}. Valid options: {valid_languages}"
             )
-
-        if (
-            self._selected_provider
-            and self._selected_provider not in SUPPORTED_PROVIDERS
-        ):
-            issues.append(f"Unsupported provider: {self._selected_provider}")
 
         return issues
 

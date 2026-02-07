@@ -609,6 +609,38 @@ def _handle_hanime_episodes(args: argparse.Namespace) -> None:
     )
 
 
+def _handle_hdfilme_episodes(args: argparse.Namespace) -> None:
+    """Handle hdfilme.press URLs in episode arguments by moving them to provider links."""
+    if not args.episode:
+        return
+
+    # Find hdfilme.press URLs in episode arguments
+    hdfilme_episodes = [
+        ep for ep in args.episode if "hdfilme.press" in ep
+    ]
+
+    if not hdfilme_episodes:
+        return
+
+    # Remove hdfilme.press URLs from episode list
+    args.episode = [
+        ep for ep in args.episode if "hdfilme.press" not in ep
+    ]
+
+    # Add them to provider_link list
+    if not args.provider_link:
+        args.provider_link = []
+    args.provider_link.extend(hdfilme_episodes)
+
+    # Set provider to HDFilme if not already set
+    if not args.provider:
+        args.provider = "HDFilme"
+
+    logging.info(
+        "Moved %d hdfilme.press URL(s) to provider link processing", len(hdfilme_episodes)
+    )
+
+
 def parse_arguments() -> argparse.Namespace:
     """
     Parse command-line arguments for the Aniworld-STO-Downloader.
@@ -645,6 +677,9 @@ def parse_arguments() -> argparse.Namespace:
 
     # Handle hanime.tv URLs in episode arguments (move them to provider links)
     _handle_hanime_episodes(args)
+
+    # Handle hdfilme.press URLs in episode arguments (move them to provider links)
+    _handle_hdfilme_episodes(args)
 
     # Handle provider links
     _handle_provider_links(args)
