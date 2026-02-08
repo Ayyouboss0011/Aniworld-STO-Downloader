@@ -295,11 +295,7 @@ def detect_provider(url, resolved=False):
         "loadx": "LoadX",
         "vidking": "VidKing",
         "hdfilme": "HDFilme",
-        "strmup": "Strmup",
-        "goodstream": "Doodstream", # Alias for Goodstream
-        "m1xdrop": "Streamtape",     # Alias for M1xdrop
-        "mixdrop": "Streamtape",     # Common alias
-        "upstream": "Streamtape"     # Common alias
+        "strmup": "Strmup"
     }
 
     for key, name in provider_map.items():

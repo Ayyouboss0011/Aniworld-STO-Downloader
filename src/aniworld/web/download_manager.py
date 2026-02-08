@@ -365,12 +365,7 @@ class DownloadQueueManager:
 
                     for cand_idx, (s_num, s_url) in enumerate(candidate_streams):
                         if self._stop_event.is_set() or queue_id in self._cancelled_jobs: break
-                        
-                        # Log attempt progress
-                        attempt_info = f" (Attempt {cand_idx + 1}/{len(candidate_streams)})" if len(candidate_streams) > 1 else ""
-                        self._update_download_status(queue_id, "downloading", 
-                            current_episode=f"Downloading {episode_info}{attempt_info}", 
-                            current_episode_progress=0.0)
+                        self._update_download_status(queue_id, "downloading", current_episode=f"Downloading {episode_info}", current_episode_progress=0.0)
                         
                         # Update episode metadata for Movie4k streams to bypass redirect logic
                         episode.link = s_url
@@ -390,20 +385,8 @@ class DownloadQueueManager:
                                     if ep_item["url"] == original_link: ep_item["status"] = "downloading"
 
                         try:
-                            # Verify if direct link extraction works before starting download
-                            # This saves time by skipping obviously broken streams
                             temp_anime = Anime(title=anime.title, slug=anime.slug, site=anime.site, language=anime.language, provider=anime.provider, action=anime.action, episode_list=[episode])
-                            
-                            logging.info(f"Testing Movie4k candidate {cand_idx + 1}: {s_url}")
-                            if is_movie4k and not episode.get_direct_link():
-                                logging.warning(f"Candidate {cand_idx + 1} failed direct link extraction. Skipping.")
-                                if cand_idx == len(candidate_streams) - 1:
-                                    failed_downloads += 1
-                                    with self._queue_lock:
-                                        if queue_id in self._active_downloads:
-                                            for ep_item in self._active_downloads[queue_id]["episodes"]:
-                                                if ep_item["url"] == original_link and ep_item["status"] != "cancelled": ep_item["status"] = "failed"
-                                continue
+                            if is_movie4k and not episode.get_direct_link(): continue
 
                             def web_progress_callback(d):
                                 if self._stop_event.is_set() or queue_id in self._cancelled_jobs: raise KeyboardInterrupt("Stopped")
@@ -421,7 +404,7 @@ class DownloadQueueManager:
                                         if tb: p = (db / tb) * 100
                                     p = min(100.0, max(0.0, p))
                                     s, e = re.sub(r"\x1b\[[0-9;]*m", "", str(d.get("_speed_str", "N/A"))).strip(), re.sub(r"\x1b\[[0-9;]*m", "", str(d.get("_eta_str", "N/A"))).strip()
-                                    msg = f"Downloading {episode_info}{attempt_info} - {p:.1f}% | Speed: {s} | ETA: {e}"
+                                    msg = f"Downloading {episode_info} - {p:.1f}% | Speed: {s} | ETA: {e}"
                                     
                                     with self._queue_lock:
                                         if queue_id in self._active_downloads:
@@ -435,10 +418,6 @@ class DownloadQueueManager:
                             before = len(list(anime_dl_dir.glob("*"))) if anime_dl_dir.exists() else 0
                             from ..action.download import download
                             download(temp_anime, web_progress_callback)
-                            
-                            # Tolerance check: if yt-dlp finishes but file check fails,
-                            # it might be due to a slight delay in file system update
-                            time.sleep(1)
                             after = len(list(anime_dl_dir.glob("*"))) if anime_dl_dir.exists() else 0
 
                             if after > before:
@@ -449,15 +428,12 @@ class DownloadQueueManager:
                                             if ep_item["url"] == original_link: ep_item["status"], ep_item["progress"] = "completed", 100.0
                                 self._update_download_status(queue_id, "downloading", completed_episodes=successful_downloads, current_episode=f"Completed {episode_info}", current_episode_progress=100.0)
                                 break
-                            else:
-                                logging.warning(f"Download finished but no new file found for candidate {cand_idx + 1}.")
-                                if cand_idx == len(candidate_streams)-1:
-                                    failed_downloads += 1
-                                    with self._queue_lock:
-                                        if queue_id in self._active_downloads:
-                                            for ep_item in self._active_downloads[queue_id]["episodes"]:
-                                                if ep_item["url"] == original_link and ep_item["status"] != "cancelled": ep_item["status"] = "failed"
-                                # Continue to next candidate
+                            elif cand_idx == len(candidate_streams)-1:
+                                failed_downloads += 1
+                                with self._queue_lock:
+                                    if queue_id in self._active_downloads:
+                                        for ep_item in self._active_downloads[queue_id]["episodes"]:
+                                            if ep_item["url"] == original_link and ep_item["status"] != "cancelled": ep_item["status"] = "failed"
                         except KeyboardInterrupt as ki:
                             if str(ki) == "EpCancelled":
                                 with self._queue_lock:
@@ -465,25 +441,8 @@ class DownloadQueueManager:
                                         for ep_item in self._active_downloads[queue_id]["episodes"]:
                                             if ep_item["url"] == original_link: ep_item["status"] = "cancelled"
                                 break
-                            elif str(ki) == "Skip":
-                                logging.info(f"User requested skip for candidate {cand_idx + 1}. Trying next...")
-                                if cand_idx == len(candidate_streams)-1:
-                                    failed_downloads += 1
-                                    with self._queue_lock:
-                                        if queue_id in self._active_downloads:
-                                            for ep_item in self._active_downloads[queue_id]["episodes"]:
-                                                if ep_item["url"] == original_link and ep_item["status"] != "cancelled": ep_item["status"] = "failed"
-                                continue
+                            elif str(ki) == "Skip" and cand_idx == len(candidate_streams)-1: failed_downloads += 1; continue
                             else: raise ki
-                        except Exception as e:
-                            logging.error(f"Error downloading candidate {cand_idx + 1}: {e}")
-                            if cand_idx == len(candidate_streams)-1:
-                                failed_downloads += 1
-                                with self._queue_lock:
-                                    if queue_id in self._active_downloads:
-                                        for ep_item in self._active_downloads[queue_id]["episodes"]:
-                                            if ep_item["url"] == original_link: ep_item["status"] = "failed"
-                            # Continue to next candidate
                         except:
                             if cand_idx == len(candidate_streams)-1:
                                 failed_downloads += 1
