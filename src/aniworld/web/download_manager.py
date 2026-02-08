@@ -431,13 +431,18 @@ class DownloadQueueManager:
                                                     ep_item["status"], ep_item["progress"], ep_item["speed"], ep_item["eta"] = "downloading", p, s if s != "N/A" else "", e if e != "N/A" else ""
                                     self.update_episode_progress(queue_id, p, msg)
 
-                            anime_dl_dir = Path(download_dir) / sanitize_filename(anime.title)
-                            before = len(list(anime_dl_dir.glob("*"))) if anime_dl_dir.exists() else 0
-                            from ..action.download import download
+                            from ..action.download import download, _get_output_filename
+                            
+                            # Generate expected output path
+                            sanitized_anime_title = sanitize_filename(anime.title)
+                            output_file = _get_output_filename(anime, episode, sanitized_anime_title)
+                            expected_output_path = Path(download_dir) / sanitized_anime_title / output_file
+                            
+                            # Execute download
                             download(temp_anime, web_progress_callback)
-                            after = len(list(anime_dl_dir.glob("*"))) if anime_dl_dir.exists() else 0
-
-                            if after > before:
+                            
+                            # Check if the expected file exists instead of counting all files
+                            if expected_output_path.exists():
                                 successful_downloads += 1
                                 with self._queue_lock:
                                     if queue_id in self._active_downloads:
@@ -446,7 +451,7 @@ class DownloadQueueManager:
                                 self._update_download_status(queue_id, "downloading", completed_episodes=successful_downloads, current_episode=f"Completed {episode_info}", current_episode_progress=100.0)
                                 break
                             else:
-                                logging.warning(f"Download finished but no new file found for candidate {cand_idx + 1}.")
+                                logging.warning(f"Download finished but expected file not found: {expected_output_path}")
                                 if cand_idx == len(candidate_streams)-1:
                                     failed_downloads += 1
                                     with self._queue_lock:
