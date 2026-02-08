@@ -199,10 +199,56 @@ class DownloadQueueManager:
                             is_available = True
                             break
 
+                    # If not found in season list, verify the episode page directly (imitating download modal logic)
+                    if not is_available:
+                        try:
+                            from ..models import Episode
+                            if base_url == config.S_TO:
+                                ep_url = f"{base_url}/serie/{slug}/staffel-{s_num}/episode-{e_num}"
+                            else:
+                                ep_url = f"{base_url}/{stream_path}/{slug}/staffel-{s_num}/episode-{e_num}"
+                            
+                            debug(f"Verifying S{s_num}E{e_num} via episode page...")
+                            temp_ep = Episode(link=ep_url)
+                            temp_ep.auto_fill_details()
+                            
+                            # Check verified languages
+                            verified_langs = temp_ep.language_name
+                            debug(f"S{s_num}E{e_num} verified available: {verified_langs}")
+                            for l in verified_langs:
+                                # Flexible matching: "German Dub" matches "DE Dub", "German Dub", "Deutsch Synchronisation"
+                                l_norm = l.lower()
+                                t_norm = target_language.lower()
+                                
+                                if l == target_language:
+                                    is_available = True
+                                    break
+                                
+                                if "german dub" in t_norm or "de dub" in t_norm:
+                                    if "de dub" in l_norm or "german dub" in l_norm or "synchronisation" in l_norm:
+                                        is_available = True
+                                        break
+                                elif "german sub" in t_norm or "de sub" in t_norm:
+                                    if "de sub" in l_norm or "german sub" in l_norm or "untertitel" in l_norm:
+                                        is_available = True
+                                        break
+                                elif "english sub" in t_norm or "en sub" in t_norm:
+                                    if "en sub" in l_norm or "english sub" in l_norm:
+                                        is_available = True
+                                        break
+                                elif "english dub" in t_norm or "en dub" in t_norm:
+                                    if "en dub" in l_norm or "english dub" in l_norm:
+                                        is_available = True
+                                        break
+                        except Exception as e:
+                            debug(f"S{s_num}E{e_num}: Failed to verify episode page: {e}", is_error=True)
+
                     if not is_available:
                         # Optional: debug why it's not available if it's the current or next episode
                         if s_num >= updated_s:
-                            debug(f"S{s_num}E{e_num}: Target language '{target_language}' not found. Available: {available_langs}")
+                            # Use verified_langs if available for a better debug message
+                            current_avail = verified_langs if 'verified_langs' in locals() else available_langs
+                            debug(f"S{s_num}E{e_num}: Target language '{target_language}' not found. Available: {current_avail}")
                         continue
 
                     # New episode found in desired language!
