@@ -12,8 +12,8 @@ from ...config import RANDOM_USER_AGENT, DEFAULT_REQUEST_TIMEOUT
 # Constants
 DOODSTREAM_BASE_URL = "https://dood.li"
 RANDOM_STRING_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-PASS_MD5_PATTERN = r"\$\.get\('([^']*\/pass_md5\/[^']*)'"
-TOKEN_PATTERN = r"token=([a-zA-Z0-9]+)"
+PASS_MD5_PATTERN = r"dsplayer\.hotkeys[^;]+(?:\$\.get|fetch)\s*\(\s*['\"]([^'\"]+/pass_md5/[^'\"]+)['\"]"
+TOKEN_PATTERN = r"['\"]?token['\"]?\s*[:=]\s*['\"]([a-zA-Z0-9]+)['\"]"
 
 
 def _get_headers() -> dict:

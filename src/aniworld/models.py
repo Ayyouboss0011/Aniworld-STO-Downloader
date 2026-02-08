@@ -1135,19 +1135,26 @@ class Episode:
         if not self.embeded_link:
             raise ValueError("No embedded link available for direct link extraction")
 
+        # Special handling for known but not explicitly defined providers
+        ytdl_link = self.embeded_link
+        if "m1xdrop.com" in ytdl_link:
+            ytdl_link = ytdl_link.replace("m1xdrop.com", "mixdrop.co") # mixdrop often changes TLDs
+            logging.info(f"Modified URL for yt-dlp (M1xdrop fix): {ytdl_link}")
+        elif "goodstream.one" in ytdl_link:
+            # Goodstream often redirects to something else or is a Doodstream clone
+            pass
+        elif "voeunblk.com" in ytdl_link or "voeunblck.com" in ytdl_link or "voeunbl0ck.com" in ytdl_link:
+            # VOE mirrors
+            provider = "VOE"
+
         if provider not in SUPPORTED_PROVIDERS:
             logging.info(f"Provider '{provider}' is not explicitly supported. Trying generic extraction with yt-dlp...")
             try:
-                # Fix for known provider aliases that yt-dlp might not recognize
-                ytdl_link = self.embeded_link
-                if "m1xdrop.com" in ytdl_link:
-                    ytdl_link = ytdl_link.replace("m1xdrop.com", "mixdrop.ag")
-                    logging.info(f"Modified URL for yt-dlp (M1xdrop fix): {ytdl_link}")
-
                 ydl_opts = {
                     'quiet': True,
                     'no_warnings': True,
                     'nocheckcertificate': True,
+                    'user_agent': RANDOM_USER_AGENT,
                 }
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     info = ydl.extract_info(ytdl_link, download=False)

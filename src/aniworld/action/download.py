@@ -75,12 +75,17 @@ def _build_ytdl_options(
     """Build yt-dlp options dictionary with all necessary parameters."""
     options = {
         "nocheckcertificate": True,
-        "fragment_retries": float("inf"),
+        "fragment_retries": 10,  # Limit retries instead of infinite to avoid infinite loops on dead fragments
+        "retries": 10,
         "concurrent_fragment_downloads": 4,
         "outtmpl": output_path,
         "quiet": False,  # Allow progress hooks to work
         "no_warnings": True,
         "logger": _create_quiet_logger(),  # Custom logger to suppress most output
+        "hls_use_mpegts": True,  # Using mpegts for HLS can be more stable and prevents some muxing issues
+        "fixup": "detect_or_warn",  # Better fixup handling
+        "buffersize": 1024 * 16,
+        "http_chunk_size": 1024 * 1024,
     }
 
     # Add provider-specific headers
