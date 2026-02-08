@@ -972,17 +972,14 @@ class WebApp:
             try:
                 if request.method == "POST":
                     data = request.get_json()
-                    new_path = data.get("path")
                     series_path = data.get("series_path")
                     movie_path = data.get("movie_path")
                     
-                    if not new_path and not series_path and not movie_path:
+                    if not series_path and not movie_path:
                         return jsonify({"success": False, "error": "Path is required"}), 400
                         
                     # Save to database
                     success = True
-                    if new_path:
-                        success &= self.db.set_setting("download_path", new_path)
                     if series_path:
                         success &= self.db.set_setting("series_download_path", series_path)
                     if movie_path:
@@ -995,28 +992,26 @@ class WebApp:
                 
                 # GET request
                 # Check database first
-                download_path = self.db.get_setting("download_path") if self.db else None
                 series_path = self.db.get_setting("series_download_path") if self.db else None
                 movie_path = self.db.get_setting("movie_download_path") if self.db else None
 
-                # Fallback to arguments/defaults if not in DB
-                # If series/movie path is not set, we use the general download_path as fallback
-                if not download_path:
-                    download_path = str(config.DEFAULT_DOWNLOAD_PATH)
-                    if (
-                        self.arguments
-                        and hasattr(self.arguments, "output_dir")
-                        and self.arguments.output_dir is not None
-                    ):
-                        download_path = str(self.arguments.output_dir)
-                
-                if not series_path:
-                    series_path = download_path or str(config.DEFAULT_SERIES_PATH)
-                if not movie_path:
-                    movie_path = download_path or str(config.DEFAULT_MOVIE_PATH)
+                # Fallback to defaults or general download_path if set in DB (migration/compatibility)
+                if not series_path or not movie_path:
+                    general_path = self.db.get_setting("download_path") if self.db else None
+                    if not general_path:
+                        if (
+                            self.arguments
+                            and hasattr(self.arguments, "output_dir")
+                            and self.arguments.output_dir is not None
+                        ):
+                            general_path = str(self.arguments.output_dir)
+                        else:
+                            general_path = str(config.DEFAULT_DOWNLOAD_PATH)
+                    
+                    if not series_path: series_path = general_path or str(config.DEFAULT_SERIES_PATH)
+                    if not movie_path: movie_path = general_path or str(config.DEFAULT_MOVIE_PATH)
 
                 return jsonify({
-                    "path": download_path,
                     "series_path": series_path,
                     "movie_path": movie_path
                 })

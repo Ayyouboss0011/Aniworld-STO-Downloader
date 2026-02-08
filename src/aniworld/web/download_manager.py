@@ -298,25 +298,22 @@ class DownloadQueueManager:
             from ..parser import arguments
             
             # Base download directories
-            base_download_dir = str(getattr(config, "DEFAULT_DOWNLOAD_PATH", os.path.expanduser("~/Downloads")))
-            if hasattr(arguments, "output_dir") and arguments.output_dir: base_download_dir = str(arguments.output_dir)
-            
-            series_download_dir = str(getattr(config, "DEFAULT_SERIES_PATH", base_download_dir))
-            movie_download_dir = str(getattr(config, "DEFAULT_MOVIE_PATH", base_download_dir))
+            series_download_dir = str(getattr(config, "DEFAULT_SERIES_PATH", os.path.expanduser("~/Downloads")))
+            movie_download_dir = str(getattr(config, "DEFAULT_MOVIE_PATH", os.path.expanduser("~/Downloads")))
 
             if self.db:
-                custom_path = self.db.get_setting("download_path")
-                if custom_path:
-                    base_download_dir = custom_path
-                    # If only the general path is set, use it for both as fallback
-                    series_download_dir = custom_path
-                    movie_download_dir = custom_path
-                
+                # Priority 1: Specific settings in DB
                 custom_series_path = self.db.get_setting("series_download_path")
-                if custom_series_path: series_download_dir = custom_series_path
-                
                 custom_movie_path = self.db.get_setting("movie_download_path")
+                
+                # Priority 2: General settings in DB (fallback for migration)
+                custom_general_path = self.db.get_setting("download_path")
+                
+                if custom_series_path: series_download_dir = custom_series_path
+                elif custom_general_path: series_download_dir = custom_general_path
+                
                 if custom_movie_path: movie_download_dir = custom_movie_path
+                elif custom_general_path: movie_download_dir = custom_general_path
 
             # Determine final download directory for this job
             download_dir = movie_download_dir if job.get("is_movie", False) else series_download_dir
