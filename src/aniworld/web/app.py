@@ -973,23 +973,34 @@ class WebApp:
                 if request.method == "POST":
                     data = request.get_json()
                     new_path = data.get("path")
+                    series_path = data.get("series_path")
+                    movie_path = data.get("movie_path")
                     
-                    if not new_path:
+                    if not new_path and not series_path and not movie_path:
                         return jsonify({"success": False, "error": "Path is required"}), 400
                         
                     # Save to database
-                    if self.db and self.db.set_setting("download_path", new_path):
-                        return jsonify({"success": True, "message": "Download path updated", "path": new_path})
+                    success = True
+                    if new_path:
+                        success &= self.db.set_setting("download_path", new_path)
+                    if series_path:
+                        success &= self.db.set_setting("series_download_path", series_path)
+                    if movie_path:
+                        success &= self.db.set_setting("movie_download_path", movie_path)
+
+                    if success:
+                        return jsonify({"success": True, "message": "Download paths updated"})
                     else:
-                        return jsonify({"success": False, "error": "Failed to save setting"}), 500
+                        return jsonify({"success": False, "error": "Failed to save settings"}), 500
                 
                 # GET request
                 # Check database first
-                download_path = None
-                if self.db:
-                    download_path = self.db.get_setting("download_path")
+                download_path = self.db.get_setting("download_path") if self.db else None
+                series_path = self.db.get_setting("series_download_path") if self.db else None
+                movie_path = self.db.get_setting("movie_download_path") if self.db else None
 
                 # Fallback to arguments/defaults if not in DB
+                # If series/movie path is not set, we use the general download_path as fallback
                 if not download_path:
                     download_path = str(config.DEFAULT_DOWNLOAD_PATH)
                     if (
@@ -998,11 +1009,25 @@ class WebApp:
                         and self.arguments.output_dir is not None
                     ):
                         download_path = str(self.arguments.output_dir)
+                
+                if not series_path:
+                    series_path = download_path or str(config.DEFAULT_SERIES_PATH)
+                if not movie_path:
+                    movie_path = download_path or str(config.DEFAULT_MOVIE_PATH)
 
-                return jsonify({"path": download_path})
+                return jsonify({
+                    "path": download_path,
+                    "series_path": series_path,
+                    "movie_path": movie_path
+                })
             except Exception as err:
                 logging.error(f"Failed to get/set download path: {err}")
-                return jsonify({"path": str(config.DEFAULT_DOWNLOAD_PATH), "error": str(err)}), 500
+                return jsonify({
+                    "path": str(config.DEFAULT_DOWNLOAD_PATH),
+                    "series_path": str(config.DEFAULT_SERIES_PATH),
+                    "movie_path": str(config.DEFAULT_MOVIE_PATH),
+                    "error": str(err)
+                }), 500
 
         @self.app.route("/api/settings/language-preferences", methods=["GET", "POST"])
         @self._require_api_auth

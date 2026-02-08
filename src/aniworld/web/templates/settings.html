@@ -100,13 +100,21 @@
                     {% endif %}
                     
                     <form id="systemSettingsForm" class="password-form">
-                        <div class="form-row-password">
-                            <div class="form-group" style="position: relative;">
-                                <label for="downloadPath">Download Path</label>
+                        <div class="form-row-password" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                            <div class="form-group" style="position: relative; width: 100%;">
+                                <label for="seriesDownloadPath"><i class="fas fa-tv"></i> Serien Download Pfad</label>
+                                <input type="text" id="seriesDownloadPath" placeholder="Default: ~/Downloads">
+                            </div>
+                            <div class="form-group" style="position: relative; width: 100%;">
+                                <label for="movieDownloadPath"><i class="fas fa-film"></i> Film Download Pfad</label>
+                                <input type="text" id="movieDownloadPath" placeholder="Default: ~/Downloads">
+                            </div>
+                            <div class="form-group" style="position: relative; width: 100%;">
+                                <label for="downloadPath"><i class="fas fa-folder-open"></i> Allgemeiner Download Pfad (Fallback)</label>
                                 <input type="text" id="downloadPath" placeholder="Default: ~/Downloads">
                                 <small class="text-muted" style="margin-top: 0.5rem; display: block;">Achtung: Bei Container Usage ist der Pfad der intern in dem Container ist.</small>
                             </div>
-                            <div class="form-group button-group">
+                            <div class="form-group button-group" style="align-self: flex-end;">
                                 <button type="submit" class="btn btn-primary">
                                     <i class="fas fa-save"></i> Save Settings
                                 </button>
@@ -403,6 +411,16 @@
                     if (downloadPathInput && data.path) {
                         downloadPathInput.value = data.path;
                     }
+                    
+                    const seriesPathInput = document.getElementById('seriesDownloadPath');
+                    if (seriesPathInput && data.series_path) {
+                        seriesPathInput.value = data.series_path;
+                    }
+                    
+                    const moviePathInput = document.getElementById('movieDownloadPath');
+                    if (moviePathInput && data.movie_path) {
+                        moviePathInput.value = data.movie_path;
+                    }
                 } catch (error) {
                     console.error('Failed to load settings:', error);
                 }
@@ -463,6 +481,8 @@
                     e.preventDefault();
 
                     const downloadPath = document.getElementById('downloadPath').value;
+                    const seriesPath = document.getElementById('seriesDownloadPath').value;
+                    const moviePath = document.getElementById('movieDownloadPath').value;
 
                     try {
                         const response = await fetch('/api/download-path', {
@@ -471,7 +491,9 @@
                                 'Content-Type': 'application/json',
                             },
                             body: JSON.stringify({
-                                path: downloadPath
+                                path: downloadPath,
+                                series_path: seriesPath,
+                                movie_path: moviePath
                             })
                         });
 

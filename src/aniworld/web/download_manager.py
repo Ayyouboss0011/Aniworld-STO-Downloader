@@ -296,11 +296,30 @@ class DownloadQueueManager:
 
             successful_downloads, failed_downloads = 0, 0
             from ..parser import arguments
-            download_dir = str(getattr(config, "DEFAULT_DOWNLOAD_PATH", os.path.expanduser("~/Downloads")))
-            if hasattr(arguments, "output_dir") and arguments.output_dir: download_dir = str(arguments.output_dir)
+            
+            # Base download directories
+            base_download_dir = str(getattr(config, "DEFAULT_DOWNLOAD_PATH", os.path.expanduser("~/Downloads")))
+            if hasattr(arguments, "output_dir") and arguments.output_dir: base_download_dir = str(arguments.output_dir)
+            
+            series_download_dir = str(getattr(config, "DEFAULT_SERIES_PATH", base_download_dir))
+            movie_download_dir = str(getattr(config, "DEFAULT_MOVIE_PATH", base_download_dir))
+
             if self.db:
                 custom_path = self.db.get_setting("download_path")
-                if custom_path: download_dir = custom_path
+                if custom_path:
+                    base_download_dir = custom_path
+                    # If only the general path is set, use it for both as fallback
+                    series_download_dir = custom_path
+                    movie_download_dir = custom_path
+                
+                custom_series_path = self.db.get_setting("series_download_path")
+                if custom_series_path: series_download_dir = custom_series_path
+                
+                custom_movie_path = self.db.get_setting("movie_download_path")
+                if custom_movie_path: movie_download_dir = custom_movie_path
+
+            # Determine final download directory for this job
+            download_dir = movie_download_dir if job.get("is_movie", False) else series_download_dir
 
             for anime in anime_list:
                 for episode in anime.episode_list:

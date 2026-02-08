@@ -8,7 +8,12 @@ services:
       - "${WEB_PORT:-3005}:${WEB_PORT:-3005}"
     volumes:
       - ${DOWNLOAD_DIR:-~/jellyfin/config/meineserien/}:/app/downloads
+      - ${SERIES_DOWNLOAD_DIR:-~/jellyfin/config/meineserien/series/}:/app/downloads/series
+      - ${MOVIE_DOWNLOAD_DIR:-~/jellyfin/config/meineserien/movies/}:/app/downloads/movies
       - aniworld-data:/app/data
+    environment:
+      - SERIES_DOWNLOAD_PATH=/app/downloads/series
+      - MOVIE_DOWNLOAD_PATH=/app/downloads/movies
     restart: unless-stopped
 
 volumes:
