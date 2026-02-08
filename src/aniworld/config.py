@@ -27,6 +27,7 @@ S_TO = "https://s.to"
 SUPPORTED_SITES = {
     "aniworld.to": {"base_url": ANIWORLD_TO, "stream_path": "anime/stream"},
     "s.to": {"base_url": S_TO, "stream_path": "serie"},
+    "movie4k": {"base_url": "movie4k:", "stream_path": ""},
 }
 
 #########################################################################################
@@ -92,11 +93,13 @@ LANGUAGE_NAMES_STO = {v: k for k, v in LANGUAGE_CODES_STO.items()}
 SITE_LANGUAGE_CODES = {
     "aniworld.to": LANGUAGE_CODES_ANIWORLD,
     "s.to": LANGUAGE_CODES_STO,
+    "movie4k": {}, # Will be filled dynamically or has no fixed mapping
 }
 
 SITE_LANGUAGE_NAMES = {
     "aniworld.to": LANGUAGE_NAMES_ANIWORLD,
     "s.to": LANGUAGE_NAMES_STO,
+    "movie4k": {},
 }
 
 #########################################################################################

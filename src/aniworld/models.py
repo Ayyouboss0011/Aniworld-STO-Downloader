@@ -114,16 +114,22 @@ class Anime:
             )
 
         self.site = site
-        self.site_config = SUPPORTED_SITES[site]
-        self.base_url = self.site_config["base_url"]
-        self.stream_path = self.site_config["stream_path"]
-
+        
         # Extract slug from episode list if not provided
         self.slug = slug or self._extract_slug_from_episodes(episode_list)
         if not self.slug:
             raise ValueError(
                 "Slug of Anime is None and cannot be determined from episodes."
             )
+
+        # Auto-detect site from slug if it's a Movie4k link
+        if self.slug and self.slug.startswith("movie4k:"):
+            self.site = "movie4k"
+
+        # Initialize site config based on final site
+        self.site_config = SUPPORTED_SITES[self.site]
+        self.base_url = self.site_config["base_url"]
+        self.stream_path = self.site_config["stream_path"]
 
         # Initialize attributes with fallbacks to parser arguments
         self.action = action or getattr(arguments, "action", "Watch")
@@ -182,6 +188,9 @@ class Anime:
                 if self.site == "s.to":
                     # s.to main series page is at /serie/SLUG
                     url = f"{self.base_url}/serie/{self.slug}"
+                elif self.site == "movie4k" or self.slug.startswith("movie4k:"):
+                    # Movie4k doesn't use HTML for basic info
+                    return None
                 else:
                     # aniworld.to is at /anime/stream/SLUG
                     url = f"{self.base_url}/{self.stream_path}/{self.slug}"
@@ -214,6 +223,18 @@ class Anime:
         """
         if self._title_cache is None:
             try:
+                if self.site == "movie4k" or self.slug.startswith("movie4k:"):
+                    # Use Episode details if available, else generic
+                    if self.episode_list:
+                        # auto_fill_details on episode will fetch title via API
+                        self.episode_list[0].auto_fill_details()
+                        self._title_cache = self.episode_list[0].anime_title
+                    
+                    if not self._title_cache:
+                        movie_id = self.slug.split(":")[-1]
+                        self._title_cache = f"Movie4k ({movie_id})"
+                    return self._title_cache
+
                 self._title_cache = get_anime_title_from_html(self.html, self.site)
                 if not self._title_cache:
                     self._title_cache = f"Unknown Anime ({self.slug})"
@@ -650,6 +671,11 @@ class Episode:
             )
 
         self.site = site
+        # Auto-detect site from link if it's a Movie4k link
+        if link and link.startswith("movie4k:"):
+            site = "movie4k"
+
+        self.site = site
         self.site_config = SUPPORTED_SITES[site]
         self.base_url = self.site_config["base_url"]
         self.stream_path = self.site_config["stream_path"]
@@ -712,6 +738,9 @@ class Episode:
             requests.RequestException: If HTTP request fails
         """
         if self._html_cache is None:
+            if self.site == "movie4k" or (self.link and self.link.startswith("movie4k:")):
+                return None
+
             if not self.link:
                 raise ValueError("Cannot fetch HTML without episode link")
 
