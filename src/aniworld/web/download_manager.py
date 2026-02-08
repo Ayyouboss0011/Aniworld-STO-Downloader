@@ -27,6 +27,7 @@ class DownloadQueueManager:
         self._next_id = 1
         self._queue_lock = threading.Lock()
         self._active_downloads = {}  # id -> download_job dict
+        self._cancelled_episodes = set() # set of (queue_id, ep_url)
         self._completed_downloads = []  # list of completed download jobs (keep last N)
         self._max_completed_history = 10
         self._skip_flags = set()
@@ -695,6 +696,10 @@ class DownloadQueueManager:
                                         raise KeyboardInterrupt("Download stopped by user")
 
                                     with self._queue_lock:
+                                        if (queue_id, original_episode_link) in self._cancelled_episodes:
+                                            self._cancelled_episodes.discard((queue_id, original_episode_link))
+                                            raise KeyboardInterrupt("EpisodeCancelled")
+
                                         if queue_id in self._skip_flags:
                                             self._skip_flags.discard(queue_id)
                                             raise KeyboardInterrupt("SkipCandidate")
@@ -770,16 +775,28 @@ class DownloadQueueManager:
                                             if queue_id in self._active_downloads:
                                                 for ep_item in self._active_downloads[queue_id]["episodes"]:
                                                     if ep_item["url"] == original_episode_link:
-                                                        ep_item["status"] = "failed"
+                                                        # Only mark as failed if it wasn't already marked as cancelled
+                                                        if ep_item["status"] != "cancelled":
+                                                            ep_item["status"] = "failed"
                             except KeyboardInterrupt as ki:
-                                if str(ki) == "SkipCandidate":
+                                if str(ki) == "EpisodeCancelled":
+                                    logging.info(f"Episode {original_episode_link} download cancelled by user")
+                                    with self._queue_lock:
+                                        if queue_id in self._active_downloads:
+                                            for ep_item in self._active_downloads[queue_id]["episodes"]:
+                                                if ep_item["url"] == original_episode_link:
+                                                    ep_item["status"] = "cancelled"
+                                    episode_downloaded = True # Treat as "done" for this episode
+                                    break
+                                elif str(ki) == "SkipCandidate":
                                     if cand_idx == len(candidate_streams) - 1:
                                         failed_downloads += 1
                                         with self._queue_lock:
                                             if queue_id in self._active_downloads:
                                                 for ep_item in self._active_downloads[queue_id]["episodes"]:
                                                     if ep_item["url"] == original_episode_link:
-                                                        ep_item["status"] = "failed"
+                                                        if ep_item["status"] != "cancelled":
+                                                            ep_item["status"] = "failed"
                                     continue
                                 else: raise ki
                             except Exception as download_error:
@@ -844,6 +861,7 @@ class DownloadQueueManager:
             if not ep_to_remove: return False
             if ep_to_remove["status"] == "downloading":
                 ep_to_remove["status"] = "cancelled"
+                self._cancelled_episodes.add((queue_id, ep_url))
                 return True
             if ep_url in job["episode_urls"]: job["episode_urls"].remove(ep_url)
             job["episodes"] = [ep for ep in job["episodes"] if ep["url"] != ep_url]
