@@ -1328,6 +1328,13 @@ class WebApp:
                 # If authentication is disabled, return all trackers
                 if not self.auth_enabled:
                     trackers = self.db.get_trackers() if self.db else []
+                    for t in trackers:
+                        t_id = t["id"]
+                        t["is_scanning"] = self.download_manager._tracker_scan_status.get(t_id, False)
+                        t["debug_messages"] = self.download_manager._tracker_debug_messages.get(t_id, [])
+                        if t_id in self.download_manager._tracker_debug_messages:
+                            # Clear messages after sending to avoid duplicates
+                            self.download_manager._tracker_debug_messages[t_id] = []
                     return jsonify({"success": True, "trackers": trackers})
 
                 if not self.db:
@@ -1338,6 +1345,12 @@ class WebApp:
                     # If no session but no users exist yet, allow access (local mode/first setup)
                     if not self.db.has_users():
                         trackers = self.db.get_trackers()
+                        for t in trackers:
+                            t_id = t["id"]
+                            t["is_scanning"] = self.download_manager._tracker_scan_status.get(t_id, False)
+                            t["debug_messages"] = self.download_manager._tracker_debug_messages.get(t_id, [])
+                            if t_id in self.download_manager._tracker_debug_messages:
+                                self.download_manager._tracker_debug_messages[t_id] = []
                         return jsonify({"success": True, "trackers": trackers})
                     return jsonify({"success": False, "error": "Unauthorized"}), 401
 
@@ -1346,6 +1359,12 @@ class WebApp:
                     return jsonify({"success": False, "error": "Invalid session"}), 401
 
                 trackers = self.db.get_trackers(user_id=user["id"])
+                for t in trackers:
+                    t_id = t["id"]
+                    t["is_scanning"] = self.download_manager._tracker_scan_status.get(t_id, False)
+                    t["debug_messages"] = self.download_manager._tracker_debug_messages.get(t_id, [])
+                    if t_id in self.download_manager._tracker_debug_messages:
+                        self.download_manager._tracker_debug_messages[t_id] = []
                 return jsonify({"success": True, "trackers": trackers})
             except Exception as e:
                 logging.error(f"Failed to get trackers: {e}")

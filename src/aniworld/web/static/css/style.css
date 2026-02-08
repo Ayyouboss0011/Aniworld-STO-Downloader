@@ -2149,6 +2149,17 @@ body[data-theme="dark"] .episode-progress-text {
     }
 }
 
+@keyframes pulse-highlight {
+    0% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.1); filter: brightness(1.5); color: #48bb78; }
+    100% { transform: scale(1); filter: brightness(1); }
+}
+
+.pulse-animation {
+    display: inline-block;
+    animation: pulse-highlight 1.5s ease-in-out 3;
+}
+
 /* Empty State */
 .empty-state {
     text-align: center;

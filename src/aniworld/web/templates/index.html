@@ -263,6 +263,18 @@
                         <input type="checkbox" id="track-series-checkbox" style="width: 18px; height: 18px;">
                         <span><strong>Track for new episodes</strong> (Check every hour and download automatically)</span>
                     </label>
+                    <div id="tracker-language-selection" style="display: none; margin-top: 10px; margin-left: 28px;">
+                        <label for="tracker-language" style="font-size: 0.9rem; margin-right: 10px;">Tracking Language:</label>
+                        <select id="tracker-language" class="search-input" style="width: auto; padding: 5px 10px; height: auto; font-size: 0.85rem; background: var(--tree-header-bg); border-color: var(--border-color); color: var(--text-primary);">
+                            <option value="German Dub">German Dub</option>
+                            <option value="German Sub">German Sub</option>
+                            <option value="English Dub">English Dub</option>
+                            <option value="English Sub">English Sub</option>
+                        </select>
+                    </div>
+                    <div id="tracker-last-seen-preview" style="display: none; margin-top: 5px; margin-left: 28px; font-size: 0.85rem; color: var(--text-secondary);">
+                        <i class="fas fa-info-circle"></i> Last seen detected: <span id="last-seen-status">Calculating...</span>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">

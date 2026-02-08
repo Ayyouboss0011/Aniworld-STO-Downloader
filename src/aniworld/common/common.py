@@ -566,6 +566,9 @@ def _parse_season_episodes_details(soup: BeautifulSoup, season: int) -> List[Dic
 
     # Fallback for old/aniworld structure if no rows found or list is empty
     if not episodes:
+        # Debugging logging (only visible in server logs)
+        logging.debug(f"Parsing season {season} with old structure fallback. Link count: {len(episode_links)}")
+        
         for link in episode_links:
             href = link["href"]
             if f"staffel-{season}/episode-" in href:
@@ -594,16 +597,16 @@ def _parse_season_episodes_details(soup: BeautifulSoup, season: int) -> List[Dic
                     
                     if container:
                         # Look for language icons in this container
+                        # 1. Try data-lang-key attribute on the whole container or children
+                        # Many modern sites use this on icons
+                        
                         # Prefer 'editFunctions' cell if available
                         lang_container = container.find("td", class_="editFunctions")
                         if not lang_container:
                             lang_container = container
 
-                        # 1. Try data-lang-key attribute
-                        imgs = lang_container.find_all("img")
-                        # If no images in lang_container, try looking in the whole container
-                        if not imgs:
-                            imgs = container.find_all("img")
+                        # Check for icons with data-lang-key anywhere in the row
+                        imgs = container.find_all("img")
                             
                         for img in imgs:
                             lang_key = None
@@ -633,6 +636,20 @@ def _parse_season_episodes_details(soup: BeautifulSoup, season: int) -> List[Dic
                             
                             if lang_key is not None:
                                 languages.append(lang_key)
+
+                        # If no images, check for text badges (common in newer layouts)
+                        if not languages:
+                            badges = container.find_all(class_=re.compile(r"badge|lang|language"))
+                            for badge in badges:
+                                text = badge.get_text(strip=True).lower()
+                                if text in ["de dub", "ger dub", "german dub", "de"]: languages.append(1)
+                                elif text in ["en dub", "en sub", "english", "en"]: languages.append(2)
+                                elif text in ["de sub", "ger sub", "german sub", "sub"]: languages.append(3)
+                        
+                        # Extra check for data-lang-key directly on elements (sometimes on i tags or spans)
+                        for el in container.find_all(attrs={"data-lang-key": True}):
+                            try: languages.append(int(el["data-lang-key"]))
+                            except: pass
                     
                     unique_langs = sorted(list(set(languages))) if languages else []
                     
@@ -659,9 +676,18 @@ def get_season_episodes_details(slug: str, link: str = ANIWORLD_TO) -> Dict[int,
         Dictionary mapping season numbers to list of episode details
     """
     # Reuse cache logic if possible, or create new cache key
-    cache_key = f"seasons_details_{slug}"
+    # Include site in cache key to avoid collisions between aniworld and s.to
+    site = "sto" if S_TO in link else "aniworld"
+    cache_key = f"seasons_details_{site}_{slug}"
+    # Check if we should bypass cache (to get fresh language info)
+    # Backend tracker check usually needs fresh data. 
+    # For now, let's always check if the first season has language data.
     if cache_key in _ANIME_DATA_CACHE:
-        return _ANIME_DATA_CACHE[cache_key]
+        cached_data = _ANIME_DATA_CACHE[cache_key]
+        # If we have cached data but it lacks language info in the first few episodes, re-fetch.
+        has_lang_info = any(ep.get("languages") for season in cached_data.values() for ep in season[:3])
+        if has_lang_info:
+            return cached_data
 
     try:
         if S_TO not in link:
@@ -728,7 +754,9 @@ def get_season_episode_count(slug: str, link: str = ANIWORLD_TO) -> Dict[int, in
         Dictionary mapping season numbers to episode counts
     """
     # Check cache first
-    cache_key = f"seasons_{slug}"
+    # Include site in cache key to avoid collisions between aniworld and s.to
+    site = "sto" if S_TO in link else "aniworld"
+    cache_key = f"seasons_{site}_{slug}"
     if cache_key in _ANIME_DATA_CACHE:
         return _ANIME_DATA_CACHE[cache_key]
 
