@@ -35,7 +35,7 @@ export const Queue = {
     startTracking() {
         if (this.state.progressInterval) return;
         this.updateDisplay();
-        this.state.progressInterval = setInterval(() => this.updateDisplay(), 3000);
+        this.state.progressInterval = setInterval(() => this.updateDisplay(), 1000);
     },
 
     async updateDisplay() {
@@ -45,6 +45,15 @@ export const Queue = {
             const active = data.queue.active || [];
             const completed = data.queue.completed || [];
             
+            if (active.length > 0) {
+                console.groupCollapsed(`Download Status Update [${new Date().toLocaleTimeString()}]`);
+                active.forEach(job => {
+                    console.log(`Job: ${job.anime_title}, Status: ${job.status}, Overall: ${job.progress_percentage}%`);
+                    console.log(`Current Ep: ${job.current_episode}, Ep Progress: ${job.current_episode_progress}%`);
+                });
+                console.groupEnd();
+            }
+
             Trackers.updateDisplay();
             
             if (this.elements.downloadBadge) {
@@ -73,6 +82,14 @@ export const Queue = {
                 if (active.length > 0) {
                     if (this.elements.activeDownloads) this.elements.activeDownloads.style.display = 'block';
                     this.updateQueueList(this.elements.activeQueueList, active, 'active');
+                    
+                    // Force a layout refresh for progress fills
+                    active.forEach(item => {
+                        const fill = document.querySelector(`.queue-item[data-id="${item.id}"] .queue-progress-fill`);
+                        if (fill) fill.style.display = 'none';
+                        if (fill) fill.offsetHeight; // trigger reflow
+                        if (fill) fill.style.display = 'block';
+                    });
                 } else if (this.elements.activeDownloads) {
                     this.elements.activeDownloads.style.display = 'none';
                 }
@@ -90,71 +107,91 @@ export const Queue = {
     updateQueueList(container, items, type) {
         if (!container) return;
         
-        // Preserve open states
-        const openJobs = Array.from(container.querySelectorAll('.queue-item.open')).map(el => el.dataset.id);
+        const currentIds = items.map(item => item.id.toString());
+        Array.from(container.querySelectorAll('.queue-item')).forEach(el => {
+            if (!currentIds.includes(el.dataset.id)) el.remove();
+        });
 
-        container.innerHTML = '';
         items.forEach(item => {
-            const qItem = document.createElement('div');
-            qItem.className = 'queue-item' + (openJobs.includes(item.id.toString()) ? ' open' : '');
-            qItem.dataset.id = item.id;
-            const prog = Math.min(100, item.progress_percentage || 0);
+            let qItem = container.querySelector(`.queue-item[data-id="${item.id}"]`);
+            const isNew = !qItem;
+            
+            if (isNew) {
+                qItem = document.createElement('div');
+                qItem.className = 'queue-item';
+                qItem.dataset.id = item.id;
+                container.appendChild(qItem);
+            }
+
+            const rawProg = item.progress_percentage;
+            const prog = Math.max(0, Math.min(100, parseFloat(rawProg || 0)));
             const isCompleted = item.status === 'completed' || item.status === 'failed';
             const isMovie = item.is_movie === true;
+            const statusChanged = qItem.querySelector('.queue-item-status')?.textContent !== item.status;
             
-            qItem.innerHTML = `
-                <div class="queue-item-header">
-                    <div class="queue-item-title-wrapper" style="flex: 1; cursor: pointer;">
-                        <i class="fas fa-chevron-right toggle-icon"></i>
-                        <span class="queue-item-title">${escapeHtml(item.anime_title)}</span>
+            if (isNew || statusChanged) {
+                qItem.innerHTML = `
+                    <div class="queue-item-header">
+                        <div class="queue-item-title-wrapper" style="flex: 1; cursor: pointer;">
+                            <i class="fas fa-chevron-right toggle-icon"></i>
+                            <span class="queue-item-title">${escapeHtml(item.anime_title)}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div class="queue-item-status ${item.status}">${item.status}</div>
+                            ${!isCompleted && isMovie ? `<button class="change-server-btn" data-id="${item.id}" title="Switch to next download server"><i class="fas fa-exchange-alt"></i> Switch Server</button>` : ''}
+                            ${!isCompleted ? `<button class="stop-download-btn" data-id="${item.id}" title="Stop Download"><i class="fas fa-stop"></i></button>` : ''}
+                            ${isCompleted ? `<button class="delete-download-btn" data-id="${item.id}" title="Remove from history"><i class="fas fa-trash"></i></button>` : ''}
+                        </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <div class="queue-item-status ${item.status}">${item.status}</div>
-                        ${!isCompleted && isMovie ? `<button class="change-server-btn" data-id="${item.id}" title="Switch to next download server"><i class="fas fa-exchange-alt"></i> Switch Server</button>` : ''}
-                        ${!isCompleted ? `<button class="stop-download-btn" data-id="${item.id}" title="Stop Download"><i class="fas fa-stop"></i></button>` : ''}
-                        ${isCompleted ? `<button class="delete-download-btn" data-id="${item.id}" title="Remove from history"><i class="fas fa-trash"></i></button>` : ''}
+                    <div class="queue-item-progress">
+                        <div class="queue-progress-bar" style="height: 14px; background: #2d3748; border-radius: 7px; border: 1px solid #4a5568; overflow: hidden; position: relative; display: block; flex: 1;">
+                            <div class="queue-progress-fill" style="width: ${prog.toFixed(1)}% !important; height: 100%; background: #48bb78 !important; border-radius: 7px; display: block !important;"></div>
+                        </div>
+                        <div class="queue-progress-text">${prog.toFixed(1)}% | ${item.completed_episodes}/${item.total_episodes} eps</div>
                     </div>
-                </div>
-                <div class="queue-item-progress">
-                    <div class="queue-progress-bar"><div class="queue-progress-fill" style="width: ${prog}%"></div></div>
-                    <div class="queue-progress-text">${prog.toFixed(1)}% | ${item.completed_episodes}/${item.total_episodes} eps</div>
-                </div>
-                <div class="queue-item-details">${escapeHtml(item.current_episode || '')}</div>
-                <div class="queue-item-episodes" id="episodes-${item.id}" style="${openJobs.includes(item.id.toString()) ? 'display: block;' : 'display: none;'}">
-                    <div class="loading-spinner-small"></div>
-                </div>
-            `;
+                    <div class="queue-item-details">${escapeHtml(item.current_episode || '')}</div>
+                    <div class="queue-item-episodes" id="episodes-${item.id}" style="display: none;">
+                        <div class="loading-spinner-small"></div>
+                    </div>
+                `;
 
-            // Toggle logic
-            qItem.querySelector('.queue-item-title-wrapper').addEventListener('click', () => {
-                const epDiv = qItem.querySelector('.queue-item-episodes');
-                const isNowOpen = qItem.classList.toggle('open');
-                epDiv.style.display = isNowOpen ? 'block' : 'none';
-                if (isNowOpen) {
-                    this.loadJobEpisodes(item.id, epDiv, item.status);
+                qItem.querySelector('.queue-item-title-wrapper').addEventListener('click', () => {
+                    const epDiv = qItem.querySelector('.queue-item-episodes');
+                    const isNowOpen = qItem.classList.toggle('open');
+                    epDiv.style.display = isNowOpen ? 'block' : 'none';
+                    if (isNowOpen) {
+                        this.loadJobEpisodes(item.id, epDiv, item.status);
+                    }
+                });
+
+                if (!isCompleted) {
+                    qItem.querySelector('.change-server-btn')?.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.executeChangeServer(item.id);
+                    });
+                    qItem.querySelector('.stop-download-btn')?.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.state.currentQueueIdToCancel = item.id;
+                        if (this.elements.stopModal) this.elements.stopModal.style.display = 'flex';
+                    });
+                } else {
+                    qItem.querySelector('.delete-download-btn')?.addEventListener('click', () => {
+                        this.executeDelete(item.id);
+                    });
                 }
-            });
-
-            if (!isCompleted) {
-                qItem.querySelector('.change-server-btn')?.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.executeChangeServer(item.id);
-                });
-                qItem.querySelector('.stop-download-btn')?.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Stop expansion
-                    this.state.currentQueueIdToCancel = item.id;
-                    if (this.elements.stopModal) this.elements.stopModal.style.display = 'flex';
-                });
             } else {
-                qItem.querySelector('.delete-download-btn')?.addEventListener('click', () => {
-                    this.executeDelete(item.id);
-                });
-            }
-            container.appendChild(qItem);
-            
-            // Re-load episodes if it was open
-            if (openJobs.includes(item.id.toString())) {
-                this.loadJobEpisodes(item.id, qItem.querySelector('.queue-item-episodes'), item.status);
+                const fill = qItem.querySelector('.queue-progress-fill');
+                if (fill) fill.style.setProperty('width', `${prog.toFixed(1)}%`, 'important');
+                
+                const text = qItem.querySelector('.queue-progress-text');
+                if (text) text.textContent = `${prog.toFixed(1)}% | ${item.completed_episodes}/${item.total_episodes} eps`;
+                
+                const details = qItem.querySelector('.queue-item-details');
+                if (details) details.textContent = item.current_episode || '';
+                
+                if (qItem.classList.contains('open')) {
+                    this.loadJobEpisodes(item.id, qItem.querySelector('.queue-item-episodes'), item.status);
+                }
             }
         });
     },
@@ -167,90 +204,127 @@ export const Queue = {
                 return;
             }
 
-            container.innerHTML = '';
-            const epList = document.createElement('div');
-            epList.className = 'job-episodes-list';
+            let epList = container.querySelector('.job-episodes-list');
+            if (!epList) {
+                container.innerHTML = '';
+                epList = document.createElement('div');
+                epList.className = 'job-episodes-list';
+                container.appendChild(epList);
+            }
             
-            data.episodes.forEach((ep, index) => {
-                const epItem = document.createElement('div');
-                epItem.className = 'job-episode-item';
-                epItem.dataset.url = ep.url;
-                const canReorderThis = ep.status === 'queued';
-                const isDownloading = ep.status === 'downloading';
-                const isFinished = ep.status === 'completed' || ep.status === 'failed' || ep.status === 'cancelled';
-                
-                epItem.innerHTML = `
-                    <div class="ep-info-row">
-                        <div class="ep-info">
-                            <span class="ep-name">${escapeHtml(ep.name)}</span>
-                            ${isDownloading ? `<span class="ep-stats">${escapeHtml(ep.speed || '')} | ${escapeHtml(ep.eta || '')}</span>` : ''}
-                        </div>
-                        <div class="ep-actions">
-                            ${canReorderThis ? `
-                                <button class="reorder-btn move-up" title="Move Up" ${index === 0 ? 'disabled' : ''}><i class="fas fa-arrow-up"></i></button>
-                                <button class="reorder-btn move-down" title="Move Down" ${index === data.episodes.length - 1 ? 'disabled' : ''}><i class="fas fa-arrow-down"></i></button>
-                            ` : ''}
-                            <span class="ep-status-text ${ep.status}">${ep.status}</span>
-                            ${!isFinished ? `
-                                <button class="ep-stop-btn" title="Stop Episode"><i class="fas fa-times"></i></button>
-                            ` : ''}
-                        </div>
-                    </div>
-                    <div class="ep-progress-container">
-                        <div class="ep-progress-bar">
-                            <div class="ep-progress-fill ${ep.status}" style="width: ${ep.progress}%"></div>
-                        </div>
-                        <span class="ep-progress-text">${ep.progress.toFixed(1)}%</span>
-                    </div>
-                `;
-
-                if (canReorderThis) {
-                    epItem.querySelector('.move-up')?.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        this.moveEpisode(queueId, index, -1, container, jobStatus);
-                    });
-                    epItem.querySelector('.move-down')?.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        this.moveEpisode(queueId, index, 1, container, jobStatus);
-                    });
-                }
-                
-                epItem.querySelector('.ep-stop-btn')?.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.executeStopEpisode(queueId, ep.url, container, jobStatus);
+            const currentUrls = data.episodes.map(ep => ep.url);
+            const existingUrls = Array.from(epList.querySelectorAll('.job-episode-item')).map(el => el.dataset.url);
+            
+            if (JSON.stringify(currentUrls) !== JSON.stringify(existingUrls)) {
+                epList.innerHTML = '';
+                data.episodes.forEach((ep, index) => {
+                    const epItem = this.createEpisodeItem(queueId, ep, index, data.episodes.length, container, jobStatus);
+                    epList.appendChild(epItem);
                 });
+            } else {
+                data.episodes.forEach(ep => {
+                    const epItem = epList.querySelector(`.job-episode-item[data-url="${ep.url}"]`);
+                    if (epItem) {
+                        const isDownloading = ep.status === 'downloading';
+                        const stats = epItem.querySelector('.ep-stats');
+                        if (isDownloading) {
+                            if (stats) stats.textContent = `${ep.speed || ''} | ${ep.eta || ''}`;
+                            else {
+                                const newStats = document.createElement('span');
+                                newStats.className = 'ep-stats';
+                                newStats.textContent = `${ep.speed || ''} | ${ep.eta || ''}`;
+                                epItem.querySelector('.ep-info').appendChild(newStats);
+                            }
+                        } else if (stats) stats.remove();
 
-                epList.appendChild(epItem);
+                        const statusText = epItem.querySelector('.ep-status-text');
+                        if (statusText) {
+                            statusText.className = `ep-status-text ${ep.status}`;
+                            statusText.textContent = ep.status;
+                        }
+
+                        const fill = epItem.querySelector('.ep-progress-fill');
+                        const progVal = parseFloat(ep.progress || 0);
+                        if (fill) {
+                            if (isDownloading) {
+                                console.debug(`  > Updating Ep UI: ${ep.name} -> ${progVal}%`);
+                            }
+                            fill.className = `ep-progress-fill ${ep.status}`;
+                            fill.style.setProperty('width', `${progVal.toFixed(1)}%`, 'important');
+                        }
+                        const text = epItem.querySelector('.ep-progress-text');
+                        if (text) text.textContent = `${progVal.toFixed(1)}%`;
+                    }
+                });
+            }
+        } catch (err) { console.error('Failed to load job episodes:', err); }
+    },
+
+    createEpisodeItem(queueId, ep, index, totalCount, container, jobStatus) {
+        const epItem = document.createElement('div');
+        epItem.className = 'job-episode-item';
+        epItem.dataset.url = ep.url;
+        const canReorderThis = ep.status === 'queued';
+        const isDownloading = ep.status === 'downloading';
+        const isFinished = ep.status === 'completed' || ep.status === 'failed' || ep.status === 'cancelled';
+        const progVal = parseFloat(ep.progress || 0);
+        
+        epItem.innerHTML = `
+            <div class="ep-info-row">
+                <div class="ep-info">
+                    <span class="ep-name">${escapeHtml(ep.name)}</span>
+                    ${isDownloading ? `<span class="ep-stats">${escapeHtml(ep.speed || '')} | ${escapeHtml(ep.eta || '')}</span>` : ''}
+                </div>
+                <div class="ep-actions">
+                    ${canReorderThis ? `
+                        <button class="reorder-btn move-up" title="Move Up" ${index === 0 ? 'disabled' : ''}><i class="fas fa-arrow-up"></i></button>
+                        <button class="reorder-btn move-down" title="Move Down" ${index === totalCount - 1 ? 'disabled' : ''}><i class="fas fa-arrow-down"></i></button>
+                    ` : ''}
+                    <span class="ep-status-text ${ep.status}">${ep.status}</span>
+                    ${!isFinished ? `
+                        <button class="ep-stop-btn" title="Stop Episode"><i class="fas fa-times"></i></button>
+                    ` : ''}
+                </div>
+            </div>
+            <div class="ep-progress-container">
+                <div class="ep-progress-bar" style="height: 8px; background: #2d3748; border-radius: 4px; border: 1px solid #4a5568; overflow: hidden; position: relative; display: block; flex: 1;">
+                    <div class="ep-progress-fill ${ep.status}" style="width: ${progVal.toFixed(1)}% !important; height: 100%; background: #4299e1 !important; display: block !important;"></div>
+                </div>
+                <span class="ep-progress-text">${progVal.toFixed(1)}%</span>
+            </div>
+        `;
+
+        if (canReorderThis) {
+            epItem.querySelector('.move-up')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.moveEpisode(queueId, index, -1, container, jobStatus);
             });
-
-            container.appendChild(epList);
-        } catch (err) {
-            console.error('Failed to load job episodes:', err);
-            container.innerHTML = '<div class="error-text">Error loading episodes</div>';
+            epItem.querySelector('.move-down')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.moveEpisode(queueId, index, 1, container, jobStatus);
+            });
         }
+        
+        epItem.querySelector('.ep-stop-btn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.executeStopEpisode(queueId, ep.url, container, jobStatus);
+        });
+
+        return epItem;
     },
 
     async moveEpisode(queueId, index, direction, container, jobStatus) {
         try {
             const data = await API.getJobEpisodes(queueId);
             if (!data.success) return;
-
             const urls = data.episodes.map(ep => ep.url);
             const newIndex = index + direction;
             if (newIndex < 0 || newIndex >= urls.length) return;
-
-            // Swap
             [urls[index], urls[newIndex]] = [urls[newIndex], urls[index]];
-
             const res = await API.reorderEpisodes(queueId, urls);
-            if (res.success) {
-                this.loadJobEpisodes(queueId, container, jobStatus);
-            } else {
-                showNotification(res.error || 'Failed to reorder episodes', 'error');
-            }
-        } catch (err) {
-            console.error('Move error:', err);
-        }
+            if (res.success) this.loadJobEpisodes(queueId, container, jobStatus);
+            else showNotification(res.error || 'Failed to reorder episodes', 'error');
+        } catch (err) { console.error('Move error:', err); }
     },
 
     async executeStopEpisode(queueId, epUrl, container, jobStatus) {
@@ -259,26 +333,16 @@ export const Queue = {
             if (res.success) {
                 showNotification('Episode removed/stopped', 'success');
                 this.loadJobEpisodes(queueId, container, jobStatus);
-            } else {
-                showNotification(res.error || 'Failed to stop episode', 'error');
-            }
-        } catch (err) {
-            console.error('Stop episode error:', err);
-        }
+            } else showNotification(res.error || 'Failed to stop episode', 'error');
+        } catch (err) { console.error('Stop episode error:', err); }
     },
 
     async executeDelete(queueId) {
         try {
             const data = await API.deleteDownload(queueId);
-            if (data.success) {
-                this.updateDisplay();
-            } else {
-                showNotification(data.error || 'Failed to delete download', 'error');
-            }
-        } catch (err) {
-            console.error('Delete error:', err);
-            showNotification('Failed to delete download', 'error');
-        }
+            if (data.success) this.updateDisplay();
+            else showNotification(data.error || 'Failed to delete download', 'error');
+        } catch (err) { console.error('Delete error:', err); }
     },
 
     async executeCancel() {
@@ -298,14 +362,8 @@ export const Queue = {
             const data = await API.skipDownloadCandidate(queueId);
             if (data.success) {
                 showNotification('Switching to next server...', 'info');
-                // Force update immediately
                 this.updateDisplay();
-            } else {
-                showNotification(data.error || 'Failed to switch server', 'error');
-            }
-        } catch (err) {
-            console.error('Change server error:', err);
-            showNotification('Failed to switch server', 'error');
-        }
+            } else showNotification(data.error || 'Failed to switch server', 'error');
+        } catch (err) { console.error('Change server error:', err); }
     }
 };

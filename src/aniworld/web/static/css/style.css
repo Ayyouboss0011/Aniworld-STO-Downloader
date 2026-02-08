@@ -1875,25 +1875,28 @@ body[data-theme="dark"] .results-section {
 .queue-progress-bar {
     flex: 1;
     /* Take available space */
-    max-width: calc(100% - 180px);
-    /* Leave space for text, then remove 10% */
-    width: 90%;
-    /* Use 90% of available width */
-    height: 6px;
-    background: var(--progress-bg);
-    border-radius: 3px;
+    max-width: calc(100% - 120px);
+    /* Leave space for text */
+    height: 14px;
+    background: #2d3748 !important; /* Force dark background */
+    border-radius: 7px;
     overflow: hidden;
     transition: background 0.3s ease;
-    border: 1px solid var(--border-color);
+    border: 1px solid #4a5568 !important;
+    position: relative;
+    display: block !important;
+    min-width: 50px;
 }
 
 .queue-progress-fill {
-    height: 100%;
-    background: #48bb78;
-    border-radius: 2px;
+    height: 100% !important;
+    background: #48bb78 !important;
+    border-radius: 7px;
     transition: width 0.3s ease;
-    width: 0%;
-    box-shadow: 0 0 4px rgba(72, 187, 120, 0.3);
+    width: 0;
+    min-width: 0%;
+    display: block !important;
+    box-shadow: 0 0 8px rgba(72, 187, 120, 0.6) !important;
 }
 
 /* Dark mode specific progress bar improvements */
@@ -1903,7 +1906,7 @@ body[data-theme="dark"] .queue-progress-bar {
 }
 
 body[data-theme="dark"] .queue-progress-fill {
-    background: #68d391;
+    background: #68d391 !important;
     box-shadow: 0 0 6px rgba(104, 211, 145, 0.4);
 }
 
@@ -1921,14 +1924,11 @@ body[data-theme="dark"] .queue-progress-fill {
 }
 
 .episode-progress .queue-progress-bar {
-    height: 4px;
+    height: 8px;
     background: var(--progress-bg-secondary, #f7fafc);
     flex: 1;
     /* Take available space */
-    max-width: calc(100% - 180px);
-    /* Leave space for text, then remove 10% - same as main progress bar */
-    width: 90%;
-    /* Use 90% of available width - same as main progress bar */
+    max-width: calc(100% - 120px);
 }
 
 .episode-progress-fill {
@@ -1948,10 +1948,7 @@ body[data-theme="dark"] .episode-progress .queue-progress-bar {
     border: 1px solid #30363d;
     flex: 1;
     /* Take available space */
-    max-width: calc(100% - 180px);
-    /* Leave space for text, then remove 10% - same as main progress bar */
-    width: 90%;
-    /* Use 90% of available width - same as main progress bar */
+    max-width: calc(100% - 120px);
 }
 
 body[data-theme="dark"] .episode-progress-fill {
@@ -2104,14 +2101,15 @@ body[data-theme="dark"] .episode-progress-text {
 
 .ep-progress-fill {
     height: 100%;
-    background: #48bb78;
+    background: #48bb78 !important;
     transition: width 0.3s ease;
     width: 0%;
+    display: block !important;
 }
 
-.ep-progress-fill.completed { background: #4299e1; }
-.ep-progress-fill.queued { background: #ed8936; }
-.ep-progress-fill.failed { background: #f56565; }
+.ep-progress-fill.completed { background: #4299e1 !important; }
+.ep-progress-fill.queued { background: #ed8936 !important; }
+.ep-progress-fill.failed { background: #f56565 !important; }
 
 .ep-progress-text {
     font-size: 0.75rem;
