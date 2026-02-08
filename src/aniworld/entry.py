@@ -24,9 +24,6 @@ def _detect_site_from_url(url: str) -> str:
     Returns:
         Site identifier (ANIWORLD_TO, S_TO, etc.)
     """
-    if url.startswith("movie4k:"):
-        return "movie4k"
-
     for site, config in SUPPORTED_SITES.items():
         base_url = config["base_url"]
         if url.startswith(base_url):

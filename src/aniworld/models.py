@@ -114,22 +114,16 @@ class Anime:
             )
 
         self.site = site
-        
+        self.site_config = SUPPORTED_SITES[site]
+        self.base_url = self.site_config["base_url"]
+        self.stream_path = self.site_config["stream_path"]
+
         # Extract slug from episode list if not provided
         self.slug = slug or self._extract_slug_from_episodes(episode_list)
         if not self.slug:
             raise ValueError(
                 "Slug of Anime is None and cannot be determined from episodes."
             )
-
-        # Auto-detect site from slug if it's a Movie4k link
-        if self.slug and self.slug.startswith("movie4k:"):
-            self.site = "movie4k"
-
-        # Initialize site config based on final site
-        self.site_config = SUPPORTED_SITES[self.site]
-        self.base_url = self.site_config["base_url"]
-        self.stream_path = self.site_config["stream_path"]
 
         # Initialize attributes with fallbacks to parser arguments
         self.action = action or getattr(arguments, "action", "Watch")
@@ -188,9 +182,6 @@ class Anime:
                 if self.site == "s.to":
                     # s.to main series page is at /serie/SLUG
                     url = f"{self.base_url}/serie/{self.slug}"
-                elif self.site == "movie4k" or self.slug.startswith("movie4k:"):
-                    # Movie4k doesn't use HTML for basic info
-                    return None
                 else:
                     # aniworld.to is at /anime/stream/SLUG
                     url = f"{self.base_url}/{self.stream_path}/{self.slug}"
@@ -223,18 +214,6 @@ class Anime:
         """
         if self._title_cache is None:
             try:
-                if self.site == "movie4k" or self.slug.startswith("movie4k:"):
-                    # Use Episode details if available, else generic
-                    if self.episode_list:
-                        # auto_fill_details on episode will fetch title via API
-                        self.episode_list[0].auto_fill_details()
-                        self._title_cache = self.episode_list[0].anime_title
-                    
-                    if not self._title_cache:
-                        movie_id = self.slug.split(":")[-1]
-                        self._title_cache = f"Movie4k ({movie_id})"
-                    return self._title_cache
-
                 self._title_cache = get_anime_title_from_html(self.html, self.site)
                 if not self._title_cache:
                     self._title_cache = f"Unknown Anime ({self.slug})"
@@ -373,74 +352,6 @@ class Anime:
     def __len__(self) -> int:
         """Get number of episodes."""
         return len(self.episode_list)
-
-    def _get_movie4k_redirect_link(self) -> Optional[str]:
-        """
-        Specialized logic for Movie4k stream extraction.
-        """
-        try:
-            from .movie4k.movie4k_stream_finder import hole_stream_daten, detect_provider
-
-            # Find the Movie4k language ID
-            lang_id = None
-            if hasattr(self, "_movie4k_lang_ids"):
-                lang_id = self._movie4k_lang_ids.get(self._selected_language)
-
-                # If not found by name, try fuzzy match or fallback
-                if not lang_id:
-                    for name, m_id in self._movie4k_lang_ids.items():
-                        if isinstance(name, str) and self._selected_language.lower() in name.lower():
-                            lang_id = m_id
-                            break
-
-                # Still not found? Fallback to first available
-                if not lang_id and self._movie4k_lang_ids:
-                    first_key = next(iter(self._movie4k_lang_ids))
-                    lang_id = self._movie4k_lang_ids[first_key]
-
-            if not lang_id:
-                # Last resort: use the movie ID itself (sometimes works)
-                lang_id = self.link.split(":")[1]
-
-            stream_daten = hole_stream_daten(lang_id)
-            if not stream_daten or not stream_daten.get("streams"):
-                logging.warning("No streams found for Movie4k ID: %s", lang_id)
-                return None
-
-            streams = stream_daten.get("streams", [])
-
-            # Filter by provider if selected
-            target_provider = self._selected_provider.lower() if self._selected_provider else None
-
-            best_stream = None
-            for s in reversed(streams): # Prefer newer streams
-                url = s.get("stream")
-                if not url: continue
-
-                if url.startswith("//"): url = "https:" + url
-
-                p_name, _ = detect_provider(url)
-
-                if not target_provider or target_provider in p_name.lower():
-                    best_stream = url
-                    self._selected_provider = p_name
-                    break
-
-            if not best_stream and streams:
-                # Fallback to any stream
-                s = streams[-1]
-                best_stream = s.get("stream")
-                if best_stream and best_stream.startswith("//"):
-                    best_stream = "https:" + best_stream
-                p_name, _ = detect_provider(best_stream)
-                self._selected_provider = p_name
-
-            self.redirect_link = best_stream
-            return self.redirect_link
-
-        except Exception as e:
-            logging.error("Error getting Movie4k redirect: %s", e)
-            return None
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -671,11 +582,6 @@ class Episode:
             )
 
         self.site = site
-        # Auto-detect site from link if it's a Movie4k link
-        if link and link.startswith("movie4k:"):
-            site = "movie4k"
-
-        self.site = site
         self.site_config = SUPPORTED_SITES[site]
         self.base_url = self.site_config["base_url"]
         self.stream_path = self.site_config["stream_path"]
@@ -738,9 +644,6 @@ class Episode:
             requests.RequestException: If HTTP request fails
         """
         if self._html_cache is None:
-            if self.site == "movie4k" or (self.link and self.link.startswith("movie4k:")):
-                return None
-
             if not self.link:
                 raise ValueError("Cannot fetch HTML without episode link")
 
@@ -1271,74 +1174,6 @@ class Episode:
                 f"Failed to get direct link from provider '{provider}': {err}"
             ) from err
 
-    def _get_movie4k_redirect_link(self) -> Optional[str]:
-        """
-        Specialized logic for Movie4k stream extraction.
-        """
-        try:
-            from .movie4k.movie4k_stream_finder import hole_stream_daten, detect_provider
-
-            # Find the Movie4k language ID
-            lang_id = None
-            if hasattr(self, "_movie4k_lang_ids"):
-                lang_id = self._movie4k_lang_ids.get(self._selected_language)
-
-                # If not found by name, try fuzzy match or fallback
-                if not lang_id:
-                    for name, m_id in self._movie4k_lang_ids.items():
-                        if isinstance(name, str) and self._selected_language.lower() in name.lower():
-                            lang_id = m_id
-                            break
-
-                # Still not found? Fallback to first available
-                if not lang_id and self._movie4k_lang_ids:
-                    first_key = next(iter(self._movie4k_lang_ids))
-                    lang_id = self._movie4k_lang_ids[first_key]
-
-            if not lang_id:
-                # Last resort: use the movie ID itself (sometimes works)
-                lang_id = self.link.split(":")[1]
-
-            stream_daten = hole_stream_daten(lang_id)
-            if not stream_daten or not stream_daten.get("streams"):
-                logging.warning("No streams found for Movie4k ID: %s", lang_id)
-                return None
-
-            streams = stream_daten.get("streams", [])
-
-            # Filter by provider if selected
-            target_provider = self._selected_provider.lower() if self._selected_provider else None
-
-            best_stream = None
-            for s in reversed(streams): # Prefer newer streams
-                url = s.get("stream")
-                if not url: continue
-
-                if url.startswith("//"): url = "https:" + url
-
-                p_name, _ = detect_provider(url)
-
-                if not target_provider or target_provider in p_name.lower():
-                    best_stream = url
-                    self._selected_provider = p_name
-                    break
-
-            if not best_stream and streams:
-                # Fallback to any stream
-                s = streams[-1]
-                best_stream = s.get("stream")
-                if best_stream and best_stream.startswith("//"):
-                    best_stream = "https:" + best_stream
-                p_name, _ = detect_provider(best_stream)
-                self._selected_provider = p_name
-
-            self.redirect_link = best_stream
-            return self.redirect_link
-
-        except Exception as e:
-            logging.error("Error getting Movie4k redirect: %s", e)
-            return None
-
     def get_redirect_link(self) -> Optional[str]:
         """
         Get redirect link for the selected provider and language.
@@ -1349,10 +1184,6 @@ class Episode:
         try:
             # Ensure we have provider data loaded
             self.auto_fill_details()
-
-            # Movie4k specific logic
-            if self.link and self.link.startswith("movie4k:"):
-                return self._get_movie4k_redirect_link()
 
             lang_key = self._get_language_key_from_name(self._selected_language)
 
@@ -1503,34 +1334,6 @@ class Episode:
                 logging.error("Error getting direct link from VidKing: %s", e)
                 return None
 
-        # SPECIAL CASE: Movie4k / Vinovo / Generic redirects
-        if self.link and self.link.startswith("movie4k:"):
-            try:
-                if not self.embeded_link:
-                    if not self.get_embeded_link():
-                        return None
-                
-                # If it's a known provider, use the standard extractor
-                if self._selected_provider in SUPPORTED_PROVIDERS:
-                    self.direct_link = self._get_direct_link_from_provider()
-                    return self.direct_link
-                
-                # Otherwise, try yt-dlp on the embedded link
-                # (This covers Vinovo and other Movie4k specific hosts)
-                logging.info(f"Using generic yt-dlp extraction for Movie4k provider: {self._selected_provider}")
-                ydl_opts = {
-                    'quiet': True,
-                    'no_warnings': True,
-                    'nocheckcertificate': True,
-                }
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(self.embeded_link, download=False)
-                    if info and 'url' in info:
-                        self.direct_link = info['url']
-                        return self.direct_link
-            except Exception as e:
-                logging.error("Generic Movie4k extraction failed: %s", e)
-
         try:
             # Get embedded link if not already available
             if not self.embeded_link:
@@ -1647,18 +1450,6 @@ class Episode:
             return
 
         try:
-            # Movie4k link handling
-            if self.link and self.link.startswith("movie4k:"):
-                movie_id = self.link.split(":")[1]
-                if not self.slug:
-                    self.slug = self.link # Keep full link as slug for identification
-                if self.season is None:
-                    self.season = 0
-                if self.episode is None:
-                    self.episode = 1
-                self._basic_details_filled = True
-                return
-
             # Construct link if missing but have components
             if (
                 not self.link
@@ -1672,14 +1463,6 @@ class Episode:
                         tmdb_id = self.slug.split(":")[1]
                         self.link = f"https://www.vidking.net/embed/movie/{tmdb_id}"
                         self._selected_provider = "VidKing"
-                    elif self.slug.startswith("movie4k:"):
-                        # Already handled above if self.link exists, 
-                        # but if we only have slug, we set link
-                        self.link = self.slug
-                        self.season = 0
-                        self.episode = 1
-                        self._basic_details_filled = True
-                        return
                     else:
                         # For s.to, URLs are /serie/SLUG/filme/...
                         if self.site == "s.to":
@@ -1776,12 +1559,6 @@ class Episode:
             # First ensure basic details are filled
             self._auto_fill_basic_details()
 
-            # Movie4k specific filling
-            if self.link and self.link.startswith("movie4k:"):
-                self._fill_movie4k_details()
-                self._full_details_filled = True
-                return
-
             # Fetch and populate metadata if link is available (expensive operations)
             if self.link:
                 try:
@@ -1823,54 +1600,6 @@ class Episode:
         except Exception as err:
             logging.error("Critical error in auto_fill_details: %s", err)
             self._full_details_filled = True
-
-    def _fill_movie4k_details(self) -> None:
-        """
-        Fetch details for Movie4k episodes using the Movie4k API.
-        """
-        try:
-            from .movie4k.movie4k import Movie4kAPI
-            from .movie4k.movie4k_stream_finder import hole_sprachliste, hole_stream_daten
-
-            movie_id = self.link.split(":")[1]
-            api = Movie4kAPI()
-            
-            # Fetch basic movie info if title is missing
-            if not self.anime_title:
-                movie_info = api.get_movie_details(movie_id)
-                if movie_info:
-                    self.anime_title = movie_info.get("title")
-                else:
-                    self.anime_title = f"Movie4k Movie ({movie_id})"
-
-            if not self.title_german:
-                self.title_german = self.anime_title
-
-            # Fetch languages
-            if not self.language:
-                languages = hole_sprachliste(movie_id)
-                if languages:
-                    # We map Movie4k indices to language codes for internal consistency
-                    # Movie4k doesn't have fixed 1, 2, 3 codes like AniWorld
-                    self.language = [idx for idx, _ in enumerate(languages, 1)]
-                    self.language_name = []
-                    for idx, lang in enumerate(languages, 1):
-                        title = lang.get("title", f"Language {idx}")
-                        # Clean title (remove count if present)
-                        clean_title = re.sub(r'\s*\(\d+\s*streams\)', '', title).strip()
-                        self.language_name.append(clean_title)
-                        
-                        # Store Movie4k ID for later stream fetching
-                        if not hasattr(self, "_movie4k_lang_ids"):
-                            self._movie4k_lang_ids = {}
-                        self._movie4k_lang_ids[clean_title] = lang.get("_id")
-                        # Also map index for backward compatibility
-                        self._movie4k_lang_ids[idx] = lang.get("_id")
-
-            # Provider fetching is handled lazily in get_redirect_link for Movie4k
-            # to avoid fetching streams for all languages at once
-        except Exception as e:
-            logging.error("Error filling Movie4k details: %s", e)
 
     def validate_configuration(self) -> List[str]:
         """
