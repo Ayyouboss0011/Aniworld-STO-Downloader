@@ -696,7 +696,13 @@ def get_season_episodes_details(slug: str, link: str = ANIWORLD_TO) -> Dict[int,
             base_url = f"{ANIWORLD_TO}/anime/stream/{slug}"
         else:
             if link.startswith("http") and slug in link:
-                base_url = link.rstrip("/")
+                # If it's a full episode link, we want the series/season base URL
+                if "/staffel-" in link:
+                    base_url = link.split("/staffel-")[0].rstrip("/")
+                elif "/episode-" in link:
+                    base_url = link.split("/episode-")[0].rstrip("/")
+                else:
+                    base_url = link.rstrip("/")
             else:
                 # For s.to, don't add /serie/stream/ if slug already contains /serie/
                 if slug.startswith("serie/"):

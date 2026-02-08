@@ -101,6 +101,10 @@ def _build_ytdl_options(
     # Add progress hook if provided
     if progress_hook:
         options["progress_hooks"] = [progress_hook]
+        
+    # Ensure consistent filenames by disabling yt-dlp's automatic character replacements
+    options["restrictfilenames"] = False
+    options["windowsfilenames"] = False
 
     return options
 
