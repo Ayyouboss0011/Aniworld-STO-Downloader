@@ -282,9 +282,10 @@ def _execute_download(
         return False
 
 
-def download(anime: Anime, web_progress_callback: Optional[Callable] = None) -> None:
-    """Download all episodes of an anime."""
+def download(anime: Anime, web_progress_callback: Optional[Callable] = None) -> bool:
+    """Download all episodes of an anime. Returns True if at least one download succeeded."""
     sanitized_anime_title = sanitize_filename(anime.title)
+    any_success = False
 
     for episode in anime:
         episode_title = _format_episode_title(anime, episode)
@@ -333,6 +334,10 @@ def download(anime: Anime, web_progress_callback: Optional[Callable] = None) -> 
             continue
 
         # Execute download
-        _execute_download(
+        success = _execute_download(
             direct_link, output_path, anime, episode_title, web_progress_callback
         )
+        if success:
+            any_success = True
+
+    return any_success

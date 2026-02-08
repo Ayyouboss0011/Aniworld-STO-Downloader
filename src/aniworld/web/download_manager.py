@@ -386,13 +386,14 @@ class DownloadQueueManager:
                                                     ep_item["status"], ep_item["progress"], ep_item["speed"], ep_item["eta"] = "downloading", p, s if s != "N/A" else "", e if e != "N/A" else ""
                                     self.update_episode_progress(queue_id, p, msg)
 
-                            anime_dl_dir = Path(download_dir) / sanitize_filename(anime.title)
-                            before = len(list(anime_dl_dir.glob("*"))) if anime_dl_dir.exists() else 0
-                            from ..action.download import download
-                            download(temp_anime, web_progress_callback)
-                            after = len(list(anime_dl_dir.glob("*"))) if anime_dl_dir.exists() else 0
+                            # Use consistent output directory for yt-dlp
+                            from ..parser import arguments
+                            arguments.output_dir = download_dir
 
-                            if after > before:
+                            from ..action.download import download
+                            success = download(temp_anime, web_progress_callback)
+
+                            if success:
                                 successful_downloads += 1
                                 with self._queue_lock:
                                     if queue_id in self._active_downloads:
