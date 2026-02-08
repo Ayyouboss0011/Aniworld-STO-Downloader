@@ -431,28 +431,17 @@ class DownloadQueueManager:
                                                     ep_item["status"], ep_item["progress"], ep_item["speed"], ep_item["eta"] = "downloading", p, s if s != "N/A" else "", e if e != "N/A" else ""
                                     self.update_episode_progress(queue_id, p, msg)
 
-                            from ..action.download import download, _get_output_filename
-                            
-                            # Generate expected output path
-                            sanitized_anime_title = sanitize_filename(anime.title)
-                            output_file = _get_output_filename(anime, episode, sanitized_anime_title)
-                            expected_output_path = Path(download_dir) / sanitized_anime_title / output_file
-                            
-                            # Execute download
+                            anime_dl_dir = Path(download_dir) / sanitize_filename(anime.title)
+                            before = len(list(anime_dl_dir.glob("*"))) if anime_dl_dir.exists() else 0
+                            from ..action.download import download
                             download(temp_anime, web_progress_callback)
                             
-                            # Check if the expected file exists instead of counting all files
-                            # Also check for a .part or .ytdl version in case it's literally just about to finish
-                            if expected_output_path.exists() or \
-                               Path(str(expected_output_path) + ".part").exists() or \
-                               Path(str(expected_output_path) + ".ytdl").exists():
-                                
-                                # If it's a .part file, wait a few seconds for it to finalize
-                                for _ in range(5):
-                                    if expected_output_path.exists(): break
-                                    time.sleep(1)
+                            # Tolerance check: if yt-dlp finishes but file check fails,
+                            # it might be due to a slight delay in file system update
+                            time.sleep(1)
+                            after = len(list(anime_dl_dir.glob("*"))) if anime_dl_dir.exists() else 0
 
-                            if expected_output_path.exists():
+                            if after > before:
                                 successful_downloads += 1
                                 with self._queue_lock:
                                     if queue_id in self._active_downloads:
@@ -461,29 +450,7 @@ class DownloadQueueManager:
                                 self._update_download_status(queue_id, "downloading", completed_episodes=successful_downloads, current_episode=f"Completed {episode_info}", current_episode_progress=100.0)
                                 break
                             else:
-                                # Final attempt: look for any mp4 file that was recently created in that directory
-                                anime_dl_dir = expected_output_path.parent
-                                recent_file = None
-                                if anime_dl_dir.exists():
-                                    files = list(anime_dl_dir.glob("*.mp4"))
-                                    if files:
-                                        # Sort by creation time
-                                        files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
-                                        # If the file was created in the last 60 seconds, it's likely ours
-                                        if time.time() - files[0].stat().st_mtime < 60:
-                                            recent_file = files[0]
-                                
-                                if recent_file:
-                                    logging.info(f"Expected file not found but found recent mp4: {recent_file}")
-                                    successful_downloads += 1
-                                    with self._queue_lock:
-                                        if queue_id in self._active_downloads:
-                                            for ep_item in self._active_downloads[queue_id]["episodes"]:
-                                                if ep_item["url"] == original_link: ep_item["status"], ep_item["progress"] = "completed", 100.0
-                                    self._update_download_status(queue_id, "downloading", completed_episodes=successful_downloads, current_episode=f"Completed {episode_info}", current_episode_progress=100.0)
-                                    break
-                                
-                                logging.warning(f"Download finished but expected file not found: {expected_output_path}")
+                                logging.warning(f"Download finished but no new file found for candidate {cand_idx + 1}.")
                                 if cand_idx == len(candidate_streams)-1:
                                     failed_downloads += 1
                                     with self._queue_lock:

@@ -7,7 +7,6 @@ from ..aniskip import aniskip
 from ..models import Anime
 
 # Set of characters not allowed in filenames on most filesystems
-# We keep this minimal to match yt-dlp's default behavior unless restrictfilenames is True
 INVALID_PATH_CHARS = set(r'<>:"/\\|?*')
 
 
@@ -16,10 +15,7 @@ def sanitize_filename(filename: str) -> str:
     Remove invalid characters from a filename.
     Used to ensure compatibility across different OS filesystems.
     """
-    sanitized = "".join(char for char in filename if char not in INVALID_PATH_CHARS)
-    # Also replace multiple spaces with single space and strip
-    sanitized = " ".join(sanitized.split())
-    return sanitized
+    return "".join(char for char in filename if char not in INVALID_PATH_CHARS)
 
 
 def format_episode_title(anime, episode) -> str:

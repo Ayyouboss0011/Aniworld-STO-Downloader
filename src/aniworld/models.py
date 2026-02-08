@@ -1135,26 +1135,22 @@ class Episode:
         if not self.embeded_link:
             raise ValueError("No embedded link available for direct link extraction")
 
-        # Special handling for known but not explicitly defined providers
-        ytdl_link = self.embeded_link
-        if "m1xdrop.com" in ytdl_link:
-            ytdl_link = ytdl_link.replace("m1xdrop.com", "mixdrop.co") # mixdrop often changes TLDs
-            logging.info(f"Modified URL for yt-dlp (M1xdrop fix): {ytdl_link}")
-        elif "goodstream.one" in ytdl_link:
-            # Goodstream often redirects to something else or is a Doodstream clone
-            pass
-        elif "voeunblk.com" in ytdl_link or "voeunblck.com" in ytdl_link or "voeunbl0ck.com" in ytdl_link:
-            # VOE mirrors
-            provider = "VOE"
-
         if provider not in SUPPORTED_PROVIDERS:
             logging.info(f"Provider '{provider}' is not explicitly supported. Trying generic extraction with yt-dlp...")
             try:
+                # Fix for known provider aliases that yt-dlp might not recognize
+                ytdl_link = self.embeded_link
+                if "m1xdrop.com" in ytdl_link:
+                    ytdl_link = ytdl_link.replace("m1xdrop.com", "mixdrop.ag")
+                    logging.info(f"Modified URL for yt-dlp (M1xdrop fix): {ytdl_link}")
+                elif "goodstream.one" in ytdl_link:
+                    # Goodstream is often a Doodstream clone or needs similar handling
+                    pass
+
                 ydl_opts = {
                     'quiet': True,
                     'no_warnings': True,
                     'nocheckcertificate': True,
-                    'user_agent': RANDOM_USER_AGENT,
                 }
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     info = ydl.extract_info(ytdl_link, download=False)
@@ -1253,6 +1249,11 @@ class Episode:
                 # Prioritize German Dub (1) or German Sub (3) or whatever is available
                 preferred_fallbacks = [1, 3, 2]  # German Dub, German Sub, English Dub/Sub
                 
+                # If it's a Movie4k link and we didn't find the language, 
+                # but we have streams, they might be indexed by 1 regardless of language
+                if self.link and self.link.startswith("movie4k:"):
+                    preferred_fallbacks = [1] + preferred_fallbacks
+
                 fallback_lang_key = None
                 for pf in preferred_fallbacks:
                     if pf in available_langs:
