@@ -175,6 +175,10 @@ class Anime:
             requests.RequestException: If HTTP request fails
         """
         if self._html_cache is None:
+            # Do not attempt to fetch HTML for movie4k links
+            if self.slug and self.slug.startswith("movie4k:"):
+                return None
+
             try:
                 headers = DEFAULT_HEADERS.copy()
                 
@@ -213,6 +217,11 @@ class Anime:
             Anime title string
         """
         if self._title_cache is None:
+            # For Movie4k links, use the slug as title if not provided
+            if self.slug and self.slug.startswith("movie4k:"):
+                self._title_cache = f"Movie ({self.slug})"
+                return self._title_cache
+
             try:
                 self._title_cache = get_anime_title_from_html(self.html, self.site)
                 if not self._title_cache:
@@ -647,6 +656,12 @@ class Episode:
             if not self.link:
                 raise ValueError("Cannot fetch HTML without episode link")
 
+            # Do not attempt to fetch HTML for movie4k links as they are not standard URLs
+            if self.link.startswith("movie4k:"):
+                # Create a mock response or just return None/raise if accessed
+                # Usually titles/details are already provided for movie4k
+                return None
+
             try:
                 headers = DEFAULT_HEADERS.copy()
                 self._html_cache = requests.get(
@@ -702,6 +717,10 @@ class Episode:
         if not self.link:
             raise ValueError("No link provided to extract season from")
 
+        # Movie4k links are always movies (season 0)
+        if self.link.startswith("movie4k:"):
+            return 0
+
         # Check if it's a movie
         if "/filme/" in self.link:
             return 0
@@ -733,6 +752,10 @@ class Episode:
         """
         if not self.link:
             raise ValueError("No link provided to extract episode from")
+
+        # Movie4k links are treated as single episodes (episode 1)
+        if self.link.startswith("movie4k:"):
+            return 1
 
         try:
             # Remove trailing slash if present
@@ -1181,6 +1204,10 @@ class Episode:
         Returns:
             Redirect link or None if not available
         """
+        # If redirect_link is already manually set (e.g. for Movie4k resolved streams), return it
+        if self.redirect_link:
+            return self.redirect_link
+
         try:
             # Ensure we have provider data loaded
             self.auto_fill_details()
@@ -1275,6 +1302,10 @@ class Episode:
         Returns:
             Embedded link or None if unavailable
         """
+        # If embeded_link is already manually set, return it
+        if self.embeded_link:
+            return self.embeded_link
+
         if not self.redirect_link:
             self.get_redirect_link()
 
@@ -1490,6 +1521,17 @@ class Episode:
 
             # Extract components from link if missing (no HTTP requests)
             if self.link:
+                # Handle Movie4k links
+                if self.link.startswith("movie4k:"):
+                    if not self.slug:
+                        self.slug = self.link
+                    if self.season is None:
+                        self.season = 0
+                    if self.episode is None:
+                        self.episode = 1
+                    self._basic_details_filled = True
+                    return
+
                 # Handle VidKing URLs first
                 if "vidking.net" in self.link:
                     tmdb_id = self.link.split("/")[-1]
@@ -1560,7 +1602,8 @@ class Episode:
             self._auto_fill_basic_details()
 
             # Fetch and populate metadata if link is available (expensive operations)
-            if self.link:
+            # Skip for Movie4k pseudo-links
+            if self.link and not self.link.startswith("movie4k:"):
                 try:
                     # Get anime title if missing
                     if not self.anime_title:

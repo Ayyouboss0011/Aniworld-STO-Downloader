@@ -1,53 +1,50 @@
+
 import logging
 import sys
 import os
 
-# Add src to path
-sys.path.append(os.path.abspath("src"))
+# Add src to sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
 
-from aniworld.common.common import get_season_episode_count, get_season_episodes_details
-from aniworld.models import Episode, Anime
+from aniworld.models import Episode
 
-# Set up logging to see what's happening
-logging.basicConfig(level=logging.DEBUG)
-
-def test_sto_parsing():
-    slug = "game-of-thrones"
-    sto_link = "https://s.to/serie/stream/game-of-thrones"
+def test_movie4k_parsing():
+    print("Testing Movie4k link parsing...")
+    link = "movie4k:6195193258607cdfb9fa3a32"
     
-    print(f"\nTesting s.to parsing for {slug}...")
     try:
-        counts = get_season_episode_count(slug, sto_link)
-        print(f"Season counts: {counts}")
+        ep = Episode(link=link)
+        print(f"Slug: {ep.slug}")
+        print(f"Season: {ep.season}")
+        print(f"Episode: {ep.episode}")
         
-        if counts:
-            details = get_season_episodes_details(slug, sto_link)
-            print(f"Details for Season 1 (first 2 episodes): {details.get(1, [])[:2]}")
-            
-            # Test Episode model slug extraction
-            ep = Episode(link="https://s.to/serie/game-of-thrones/staffel-1/episode-1", site="s.to")
-            print(f"Episode model slug: {ep.slug}, season: {ep.season}, episode: {ep.episode}")
-            
+        assert ep.slug == link
+        assert ep.season == 0
+        assert ep.episode == 1
+        print("SUCCESS: Movie4k parsing works correctly!")
     except Exception as e:
-        print(f"Error during s.to testing: {e}")
+        print(f"FAILED: Movie4k parsing failed with error: {e}")
+        sys.exit(1)
 
 def test_aniworld_parsing():
-    slug = "solo-leveling"
-    ani_link = "https://aniworld.to/anime/stream/solo-leveling"
+    print("\nTesting standard Aniworld link parsing...")
+    link = "https://aniworld.to/anime/stream/one-piece/staffel-1/episode-1"
     
-    print(f"\nTesting aniworld parsing for {slug}...")
     try:
-        counts = get_season_episode_count(slug, ani_link)
-        print(f"Season counts: {counts}")
+        ep = Episode(link=link)
+        print(f"Slug: {ep.slug}")
+        print(f"Season: {ep.season}")
+        print(f"Episode: {ep.episode}")
         
-        if counts:
-            # Test Episode model slug extraction
-            ep = Episode(link="https://aniworld.to/anime/stream/solo-leveling/staffel-1/episode-1")
-            print(f"Episode model slug: {ep.slug}, season: {ep.season}, episode: {ep.episode}")
-            
+        assert ep.slug == "one-piece"
+        assert ep.season == 1
+        assert ep.episode == 1
+        print("SUCCESS: Standard Aniworld parsing remains unaffected!")
     except Exception as e:
-        print(f"Error during aniworld testing: {e}")
+        print(f"FAILED: Standard Aniworld parsing failed with error: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    test_sto_parsing()
+    logging.basicConfig(level=logging.INFO)
+    test_movie4k_parsing()
     test_aniworld_parsing()

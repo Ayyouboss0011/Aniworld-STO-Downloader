@@ -336,8 +336,22 @@ class DownloadQueueManager:
                         try:
                             self._update_download_status(queue_id, "downloading", current_episode="Resolving Movie4k...")
                             m_id = original_link.split(":")[1]
+                            
+                            # Get the selected language from job, if it's "Language ID X", extract X
+                            selected_lang_idx = 1
+                            if job["language"].startswith("Language ID "):
+                                try:
+                                    selected_lang_idx = int(job["language"].split(" ")[2])
+                                except: pass
+                            
                             langs = hole_sprachliste(m_id)
-                            target_lang = langs[0] if langs else None
+                            target_lang = None
+                            if langs:
+                                if 1 <= selected_lang_idx <= len(langs):
+                                    target_lang = langs[selected_lang_idx - 1]
+                                else:
+                                    target_lang = langs[0]
+                                    
                             if target_lang:
                                 s_data = hole_stream_daten(target_lang["_id"])
                                 streams = s_data.get("streams", []) if s_data else []
@@ -345,12 +359,26 @@ class DownloadQueueManager:
                                 for i, s in enumerate(reversed(streams)):
                                     u = s.get("stream", "")
                                     if u: candidate_streams.append((i+1, "https:" + u if u.startswith("//") else u if u.startswith("http") else "https://" + u))
-                        except: candidate_streams = [(0, original_link)]
+                        except Exception as e:
+                            logging.error(f"Movie4k resolution failed: {e}")
+                            candidate_streams = [(0, original_link)]
 
                     for cand_idx, (s_num, s_url) in enumerate(candidate_streams):
                         if self._stop_event.is_set() or queue_id in self._cancelled_jobs: break
                         self._update_download_status(queue_id, "downloading", current_episode=f"Downloading {episode_info}", current_episode_progress=0.0)
-                        episode.link, episode.direct_link = s_url, None
+                        
+                        # Update episode metadata for Movie4k streams to bypass redirect logic
+                        episode.link = s_url
+                        episode.direct_link = None
+                        if is_movie4k:
+                            # Manually detect provider and inject into episode object
+                            p_name, _ = detect_provider(s_url)
+                            episode._selected_provider = p_name
+                            episode.provider = {p_name: {1: s_url}}
+                            episode.provider_name = [p_name]
+                            episode.redirect_link = s_url # Bypass get_redirect_link
+                            episode.embeded_link = s_url # Bypass get_embeded_link
+
                         with self._queue_lock:
                             if queue_id in self._active_downloads:
                                 for ep_item in self._active_downloads[queue_id]["episodes"]:
