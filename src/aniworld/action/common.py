@@ -6,15 +6,15 @@ from ..parser import arguments
 from ..aniskip import aniskip
 from ..models import Anime
 
-# Set of characters not allowed in filenames or that might cause issues with tools like yt-dlp
-# We are more aggressive here to ensure 100% match between calculation and filesystem
-INVALID_PATH_CHARS = set(r'<>:"/\\|?*!#$&\'()+;,=@[]^`{}~')
+# Set of characters not allowed in filenames on most filesystems
+# We keep this minimal to match yt-dlp's default behavior unless restrictfilenames is True
+INVALID_PATH_CHARS = set(r'<>:"/\\|?*')
 
 
 def sanitize_filename(filename: str) -> str:
     """
-    Remove invalid and problematic characters from a filename.
-    Used to ensure compatibility across different OS filesystems and consistency with yt-dlp.
+    Remove invalid characters from a filename.
+    Used to ensure compatibility across different OS filesystems.
     """
     sanitized = "".join(char for char in filename if char not in INVALID_PATH_CHARS)
     # Also replace multiple spaces with single space and strip
