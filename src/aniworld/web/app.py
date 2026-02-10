@@ -976,9 +976,10 @@ class WebApp:
                     data = request.get_json()
                     series_path = data.get("series_path")
                     movie_path = data.get("movie_path")
+                    max_concurrent_downloads = data.get("max_concurrent_downloads")
                     
-                    if not series_path and not movie_path:
-                        return jsonify({"success": False, "error": "Path is required"}), 400
+                    if not series_path and not movie_path and not max_concurrent_downloads:
+                        return jsonify({"success": False, "error": "Settings are required"}), 400
                         
                     # Save to database
                     success = True
@@ -986,6 +987,8 @@ class WebApp:
                         success &= self.db.set_setting("series_download_path", series_path)
                     if movie_path:
                         success &= self.db.set_setting("movie_download_path", movie_path)
+                    if max_concurrent_downloads:
+                        success &= self.db.set_setting("max_concurrent_downloads", str(max_concurrent_downloads))
 
                     if success:
                         return jsonify({"success": True, "message": "Download paths updated"})
@@ -996,6 +999,7 @@ class WebApp:
                 # Check database first
                 series_path = self.db.get_setting("series_download_path") if self.db else None
                 movie_path = self.db.get_setting("movie_download_path") if self.db else None
+                max_concurrent_downloads = self.db.get_setting("max_concurrent_downloads", "1") if self.db else "1"
 
                 # Fallback to defaults or general download_path if set in DB (migration/compatibility)
                 if not series_path or not movie_path:
@@ -1015,7 +1019,8 @@ class WebApp:
 
                 return jsonify({
                     "series_path": series_path,
-                    "movie_path": movie_path
+                    "movie_path": movie_path,
+                    "max_concurrent_downloads": max_concurrent_downloads
                 })
             except Exception as err:
                 logging.error(f"Failed to get/set download path: {err}")

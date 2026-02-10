@@ -110,6 +110,11 @@
                                 <input type="text" id="movieDownloadPath" placeholder="Default: ~/Downloads">
                                 <small class="text-muted" style="margin-top: 0.5rem; display: block;">Achtung: Bei Container Usage ist der Pfad der intern in dem Container ist.</small>
                             </div>
+                            <div class="form-group" style="position: relative; width: 100%;">
+                                <label for="maxConcurrentDownloads"><i class="fas fa-download"></i> Gleichzeitige Downloads</label>
+                                <input type="number" id="maxConcurrentDownloads" min="1" max="10" placeholder="Default: 1">
+                                <small class="text-muted" style="margin-top: 0.5rem; display: block;">Anzahl der Downloads, die gleichzeitig verarbeitet werden können.</small>
+                            </div>
                             <div class="form-group button-group" style="align-self: flex-end;">
                                 <button type="submit" class="btn btn-primary">
                                     <i class="fas fa-save"></i> Save Settings
@@ -417,6 +422,11 @@
                     if (moviePathInput && data.movie_path) {
                         moviePathInput.value = data.movie_path;
                     }
+                    
+                    const maxDownloadsInput = document.getElementById('maxConcurrentDownloads');
+                    if (maxDownloadsInput && data.max_concurrent_downloads) {
+                        maxDownloadsInput.value = data.max_concurrent_downloads;
+                    }
                 } catch (error) {
                     console.error('Failed to load settings:', error);
                 }
@@ -478,6 +488,7 @@
 
                     const seriesPath = document.getElementById('seriesDownloadPath').value;
                     const moviePath = document.getElementById('movieDownloadPath').value;
+                    const maxDownloads = document.getElementById('maxConcurrentDownloads').value;
 
                     try {
                         const response = await fetch('/api/download-path', {
@@ -487,7 +498,8 @@
                             },
                             body: JSON.stringify({
                                 series_path: seriesPath,
-                                movie_path: moviePath
+                                movie_path: moviePath,
+                                max_concurrent_downloads: maxDownloads
                             })
                         });
 

@@ -19,8 +19,8 @@ class DownloadQueueManager:
     def __init__(self, database: Optional[UserDatabase] = None):
         self.db = database  # Only used for user auth, not download storage
         self.is_processing = False
-        self.current_download_id = None
-        self.worker_thread = None
+        self.active_workers = {} # thread_id -> job_id
+        self.worker_threads = []
         self._stop_event = threading.Event()
         self._cancelled_jobs = set()
 
@@ -40,19 +40,35 @@ class DownloadQueueManager:
         if not self.is_processing:
             self.is_processing = True
             self._stop_event.clear()
-            self.worker_thread = threading.Thread(
-                target=self._process_queue, daemon=True
-            )
-            self.worker_thread.start()
-            logging.info("Download queue processor started")
+            
+            # Get max concurrent downloads from settings
+            max_concurrent = 1
+            if self.db:
+                try:
+                    max_concurrent = int(self.db.get_setting("max_concurrent_downloads", "1"))
+                except:
+                    max_concurrent = 1
+            
+            self.worker_threads = []
+            for i in range(max_concurrent):
+                t = threading.Thread(
+                    target=self._process_queue, 
+                    name=f"DownloadWorker-{i+1}",
+                    daemon=True
+                )
+                t.start()
+                self.worker_threads.append(t)
+            
+            logging.info(f"Download queue processor started with {max_concurrent} workers")
 
     def stop_queue_processor(self):
         """Stop the background queue processor"""
         if self.is_processing:
             self.is_processing = False
             self._stop_event.set()
-            if self.worker_thread:
-                self.worker_thread.join(timeout=5)
+            for t in self.worker_threads:
+                t.join(timeout=2)
+            self.worker_threads = []
             logging.info("Download queue processor stopped")
 
     def start_tracker_processor(self):
@@ -188,7 +204,7 @@ class DownloadQueueManager:
                                 if "german dub" in t_norm or "de dub" in t_norm:
                                     if "de dub" in l_norm or "german dub" in l_norm or "synchronisation" in l_norm: is_available = True; break
                                 elif "german sub" in t_norm or "de sub" in t_norm:
-                                    if "de sub" in l_norm or "german sub" in l_norm or "untertitel" in l_norm: is_available = True; break
+                                    if "de sub" in l_norm or "german_sub" in l_norm or "untertitel" in l_norm: is_available = True; break
                                 elif "english sub" in t_norm or "en sub" in t_norm:
                                     if "en sub" in l_norm or "english sub" in l_norm: is_available = True; break
                                 elif "english dub" in t_norm or "en dub" in t_norm:
@@ -263,16 +279,30 @@ class DownloadQueueManager:
             return {"active": active, "completed": completed}
 
     def _process_queue(self):
+        thread_id = threading.current_thread().name
         while self.is_processing and not self._stop_event.is_set():
             try:
                 job = self._get_next_queued_download()
                 if job:
-                    self.current_download_id = job["id"]
-                    try: self._process_download_job(job)
-                    except KeyboardInterrupt: self._update_download_status(job["id"], "failed", error_message="Interrupted")
-                    self.current_download_id = None
-                else: time.sleep(2)
-            except Exception as e: logging.error(f"Queue error: {e}"); time.sleep(5)
+                    with self._queue_lock:
+                        self.active_workers[thread_id] = job["id"]
+                    
+                    try: 
+                        self._process_download_job(job)
+                    except KeyboardInterrupt: 
+                        self._update_download_status(job["id"], "failed", error_message="Interrupted")
+                    except Exception as e:
+                        logging.error(f"Worker {thread_id} error processing job {job['id']}: {e}")
+                        self._update_download_status(job["id"], "failed", error_message=f"Fatal error: {e}")
+                    
+                    with self._queue_lock:
+                        if thread_id in self.active_workers:
+                            del self.active_workers[thread_id]
+                else: 
+                    time.sleep(2)
+            except Exception as e: 
+                logging.error(f"Queue error in worker {thread_id}: {e}")
+                time.sleep(5)
 
     def _process_download_job(self, job):
         queue_id = job["id"]
@@ -444,8 +474,15 @@ class DownloadQueueManager:
 
     def _get_next_queued_download(self):
         with self._queue_lock:
+            # Check if any worker is already assigned to a job that is still marked as 'queued'
+            # (to prevent multiple workers from picking up the same job before its status changes)
+            busy_job_ids = set(self.active_workers.values())
+            
             for d in self._active_downloads.values():
-                if d["status"] == "queued": return d
+                if d["status"] == "queued" and d["id"] not in busy_job_ids:
+                    # Mark as downloading immediately to reserve it
+                    d["status"] = "downloading"
+                    return d
             return None
 
     def update_episode_progress(self, queue_id: int, episode_progress: float, current_episode_desc: str = None):
