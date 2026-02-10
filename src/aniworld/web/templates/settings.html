@@ -111,8 +111,16 @@
                                 <small class="text-muted" style="margin-top: 0.5rem; display: block;">Achtung: Bei Container Usage ist der Pfad der intern in dem Container ist.</small>
                             </div>
                             <div class="form-group" style="position: relative; width: 100%;">
-                                <label for="maxConcurrentDownloads"><i class="fas fa-download"></i> Gleichzeitige Downloads</label>
-                                <input type="number" id="maxConcurrentDownloads" min="1" max="10" placeholder="Default: 1">
+                                <label><i class="fas fa-download"></i> Gleichzeitige Downloads</label>
+                                <div class="concurrent-downloads-selector" id="concurrentDownloadsSelector">
+                                    <button type="button" class="concurrent-btn" data-value="1">1</button>
+                                    <button type="button" class="concurrent-btn" data-value="2">2</button>
+                                    <button type="button" class="concurrent-btn" data-value="3">3</button>
+                                    <button type="button" class="concurrent-btn" data-value="4">4</button>
+                                    <button type="button" class="concurrent-btn" data-value="5">5</button>
+                                    <button type="button" class="concurrent-btn" data-value="10">10</button>
+                                </div>
+                                <input type="hidden" id="maxConcurrentDownloads" value="1">
                                 <small class="text-muted" style="margin-top: 0.5rem; display: block;">Anzahl der Downloads, die gleichzeitig verarbeitet werden können.</small>
                             </div>
                             <div class="form-group button-group" style="align-self: flex-end;">
@@ -426,6 +434,15 @@
                     const maxDownloadsInput = document.getElementById('maxConcurrentDownloads');
                     if (maxDownloadsInput && data.max_concurrent_downloads) {
                         maxDownloadsInput.value = data.max_concurrent_downloads;
+                        // Set active button
+                        const buttons = document.querySelectorAll('.concurrent-btn');
+                        buttons.forEach(btn => {
+                            if (btn.dataset.value == data.max_concurrent_downloads) {
+                                btn.classList.add('active');
+                            } else {
+                                btn.classList.remove('active');
+                            }
+                        });
                     }
                 } catch (error) {
                     console.error('Failed to load settings:', error);
@@ -454,6 +471,20 @@
                     console.error('Failed to load language preferences:', error);
                 }
             }
+
+            // Concurrent downloads selector logic
+            const concurrentButtons = document.querySelectorAll('.concurrent-btn');
+            const maxConcurrentInput = document.getElementById('maxConcurrentDownloads');
+            
+            concurrentButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    concurrentButtons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    if (maxConcurrentInput) {
+                        maxConcurrentInput.value = btn.dataset.value;
+                    }
+                });
+            });
 
             // Language preferences form
             const languagePreferencesForm = document.getElementById('languagePreferencesForm');
