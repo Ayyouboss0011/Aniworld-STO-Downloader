@@ -381,6 +381,8 @@ def download_stream(stream_url, title, lang_code, provider_name=None, web_progre
     
     print(f"Erkannter Provider: {provider_name}")
     print(f"URL: {stream_url}")
+    if output_dir:
+        print(f"Download-Verzeichnis: {output_dir}")
 
     try:
         anime = create_anime_object(stream_url, title, lang_code, provider_name)

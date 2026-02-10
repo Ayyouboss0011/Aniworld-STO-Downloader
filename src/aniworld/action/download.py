@@ -303,6 +303,12 @@ def download(anime: Anime, web_progress_callback: Optional[Callable] = None) -> 
 
         episode_title = _format_episode_title(anime, episode)
 
+        # Generate output path
+        output_file = _get_output_filename(anime, episode, sanitized_anime_title)
+        output_path = Path(arguments.output_dir) / sanitized_anime_title / output_file
+        
+        print(f"  Output Path: {output_path}")
+
         # Get direct link
         direct_link = get_direct_link(episode, episode_title)
         if not direct_link:
@@ -316,10 +322,6 @@ def download(anime: Anime, web_progress_callback: Optional[Callable] = None) -> 
             print(episode_title)
             print(f"{direct_link}\n")
             continue
-
-        # Generate output path
-        output_file = _get_output_filename(anime, episode, sanitized_anime_title)
-        output_path = Path(arguments.output_dir) / sanitized_anime_title / output_file
 
         # Ensure output directory exists
         output_path.parent.mkdir(parents=True, exist_ok=True)
