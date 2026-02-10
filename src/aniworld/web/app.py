@@ -991,6 +991,9 @@ class WebApp:
                         success &= self.db.set_setting("max_concurrent_downloads", str(max_concurrent_downloads))
 
                     if success:
+                        # Restart download processor to apply new max_concurrent_downloads
+                        if max_concurrent_downloads:
+                            self.download_manager.restart_queue_processor()
                         return jsonify({"success": True, "message": "Download paths updated"})
                     else:
                         return jsonify({"success": False, "error": "Failed to save settings"}), 500
