@@ -22,12 +22,14 @@ try:
     from src.aniworld.models import Anime, Episode
     from src.aniworld.action.download import download
     from src.aniworld.config import SUPPORTED_PROVIDERS
+    from src.aniworld.parser import arguments
 except ImportError:
     # Fallback for when running from project root directly
     try:
         from aniworld.models import Anime, Episode
         from aniworld.action.download import download
         from aniworld.config import SUPPORTED_PROVIDERS
+        from aniworld.parser import arguments
     except ImportError:
         print("Fehler: Konnte 'aniworld' Module nicht importieren.")
         print("Bitte führen Sie das Skript aus dem Projekt-Root aus oder stellen Sie sicher, dass PYTHONPATH gesetzt ist.")
@@ -384,6 +386,8 @@ def download_stream(stream_url, title, lang_code, provider_name=None, web_progre
         anime = create_anime_object(stream_url, title, lang_code, provider_name)
         if output_dir:
             anime.output_directory = output_dir
+            # Setze auch das globale arguments-Objekt, da download() dieses verwendet
+            arguments.output_dir = output_dir
 
         print("-" * 60)
         print("Starte Download-Prozess (AniWorld-Engine)...")
