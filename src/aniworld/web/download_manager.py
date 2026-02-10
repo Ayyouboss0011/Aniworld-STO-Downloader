@@ -366,7 +366,6 @@ class DownloadQueueManager:
 
                         try:
                             temp_anime = Anime(title=anime.title, slug=anime.slug, site=anime.site, language=episode._selected_language, provider=episode._selected_provider, action=anime.action, episode_list=[episode])
-                            if is_movie4k and not episode.get_direct_link(): continue
 
                             def web_progress_callback(d):
                                 if self._stop_event.is_set() or queue_id in self._cancelled_jobs: raise KeyboardInterrupt("Stopped")

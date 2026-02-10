@@ -1536,14 +1536,9 @@ def start_web_interface(arguments=None, port=5000, debug=False):
         else "DISABLED (localhost only)"
     )
 
-    # Get download path
-    download_path = str(config.DEFAULT_DOWNLOAD_PATH)
-    if (
-        arguments
-        and hasattr(arguments, "output_dir")
-        and arguments.output_dir is not None
-    ):
-        download_path = str(arguments.output_dir)
+    # Get download paths from config (which respect env variables)
+    series_path = str(config.DEFAULT_SERIES_PATH)
+    movie_path = str(config.DEFAULT_MOVIE_PATH)
 
     # Show appropriate server address based on host
     server_address = (
@@ -1556,7 +1551,8 @@ def start_web_interface(arguments=None, port=5000, debug=False):
     print(f"📍 Server Address:   {server_address}")
     print(f"🔐 Security Mode:    {auth_status}")
     print(f"🌐 External Access:  {expose_status}")
-    print(f"📁 Download Path:    {download_path}")
+    print(f"📁 Series Path:      {series_path}")
+    print(f"📁 Movie Path:       {movie_path}")
     print(f"🐞 Debug Mode:       {'ENABLED' if debug else 'DISABLED'}")
     print(f"📦 Version:          {config.VERSION}")
     print(f"🌏 Browser:          {browser_status}")
