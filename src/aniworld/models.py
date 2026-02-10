@@ -768,7 +768,7 @@ class Episode:
         try:
             episode_soup = BeautifulSoup(self.html.content, "html.parser")
 
-            # Check for new s.to structure
+            # Check for s.to structure
             if self.site == "s.to":
                 language_codes = set()
                 
@@ -779,7 +779,7 @@ class Episode:
                     if lang_key and lang_key.isdigit():
                         language_codes.add(int(lang_key))
                 
-                # 2. Try SVG flag icons (based on season table but might be on episode page too)
+                # 2. Try SVG flag icons
                 svg_flags = episode_soup.find_all("svg", class_=lambda x: x and "svg-flag-" in x)
                 for svg in svg_flags:
                     svg_class = " ".join(svg.get("class", []))
@@ -787,7 +787,7 @@ class Episode:
                         language_codes.add(1)
                     elif "svg-flag-english" in svg_class:
                         language_codes.add(2)
-                    elif "svg-flag-japanese" in svg_class:
+                    elif "svg-flag-japanese" in svg_class or "svg-flag-sub" in svg_class:
                         language_codes.add(3)
 
                 # 3. Try hoster-tabs/selection areas
@@ -795,9 +795,15 @@ class Episode:
                 if hoster_nav:
                     lang_links = hoster_nav.find_all("a", class_="language-link")
                     for link in lang_links:
-                        # Extract from class or data attribute
-                        if "german" in link.get("class", []): language_codes.add(1)
-                        if "english" in link.get("class", []): language_codes.add(2)
+                        classes = link.get("class", [])
+                        if "german" in classes: language_codes.add(1)
+                        if "english" in classes: language_codes.add(2)
+                        if "japanese" in classes or "sub" in classes: language_codes.add(3)
+                        
+                        # Check data-lang-key if available
+                        lang_key = link.get("data-lang-key")
+                        if lang_key and lang_key.isdigit():
+                            language_codes.add(int(lang_key))
 
                 if language_codes:
                     return sorted(list(language_codes))
@@ -907,20 +913,53 @@ class Episode:
                                 if provider_name not in providers: providers[provider_name] = {}
                                 providers[provider_name][lang_key] = redirect_url
                                 
-                # 3. Handle cases where multiple languages are available but not correctly attributed
-                if providers and self.site == "s.to":
-                    # If we only have German Dub (1) but German Sub (3) was requested, 
-                    # check if the site actually provides more info
-                    pass
+                # 3. Try to find the active language and assign it to providers that have no lang_key
+                # This is important if s.to only lists providers for the currently selected language tab
+                if providers:
+                    # Find active language in hoster-nav
+                    active_lang_key = 1 # Default to German Dub
+                    hoster_nav = soup.find("div", class_="hoster-nav")
+                    if hoster_nav:
+                        active_lang_link = hoster_nav.find("a", class_="active")
+                        if active_lang_link:
+                            classes = active_lang_link.get("class", [])
+                            if "german" in classes: active_lang_key = 1
+                            if "english" in classes: active_lang_key = 2
+                            if "japanese" in classes or "sub" in classes: active_lang_key = 3
+                            
+                            lang_key_attr = active_lang_link.get("data-lang-key")
+                            if lang_key_attr and lang_key_attr.isdigit():
+                                active_lang_key = int(lang_key_attr)
+
+                    # Also check changeLanguageBox for active state
+                    change_lang_box = soup.find("div", class_="changeLanguageBox")
+                    if change_lang_box:
+                        active_lang_img = change_lang_box.find("img", class_="active")
+                        if active_lang_img:
+                            lang_key_attr = active_lang_img.get("data-lang-key")
+                            if lang_key_attr and lang_key_attr.isdigit():
+                                active_lang_key = int(lang_key_attr)
+
+                    # Assign active_lang_key to providers that were found but might have defaulted to 1
+                    # (only if we didn't find multiple languages already)
+                    all_keys = set()
+                    for lang_dict in providers.values():
+                        all_keys.update(lang_dict.keys())
+                    
+                    if len(all_keys) == 1 and 1 in all_keys and active_lang_key != 1:
+                        logging.debug("Re-assigning s.to providers to active language key: %d", active_lang_key)
+                        for p_name in providers:
+                            providers[p_name][active_lang_key] = providers[p_name].pop(1)
 
                 if providers:
                     logging.debug(
-                        'Available providers for "%s" (s.to):\\n%s',
+                        'Available providers for "%s" (s.to):\n%s',
                         self.anime_title,
                         json.dumps(providers, indent=2),
                     )
                     return providers
 
+            # Default / AniWorld structure
             episode_links = soup.find_all(
                 "li", class_=lambda x: x and x.startswith("episodeLink")
             )
@@ -1186,6 +1225,7 @@ class Episode:
             self.auto_fill_details()
 
             lang_key = self._get_language_key_from_name(self._selected_language)
+            logging.debug("Requested language: '%s' (key: %d)", self._selected_language, lang_key)
 
             # Check if selected provider and language combination exists
             if (
@@ -1193,6 +1233,7 @@ class Episode:
                 and lang_key in self.provider[self._selected_provider]
             ):
                 self.redirect_link = self.provider[self._selected_provider][lang_key]
+                logging.debug("Found exact match for provider '%s' and language '%s'", self._selected_provider, self._selected_language)
                 return self.redirect_link
 
             # Fallback: find any provider with the selected language
@@ -1213,6 +1254,9 @@ class Episode:
             available_langs = set()
             for lang_dict in self.provider.values():
                 available_langs.update(lang_dict.keys())
+            
+            logging.debug("Language '%s' (key: %d) not found in providers: %s", 
+                          self._selected_language, lang_key, list(self.provider.keys()))
 
             # Fallback level 2: try any available language
             if available_langs:

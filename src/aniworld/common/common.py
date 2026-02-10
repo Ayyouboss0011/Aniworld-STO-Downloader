@@ -633,7 +633,7 @@ def _parse_season_episodes_details(soup: BeautifulSoup, season: int) -> List[Dic
                                 elif "english" in title or "englisch" in title or "english.svg" in src or "japanese-english.svg" in src:
                                     lang_key = 2
                                 # German Dub (usually 1)
-                                elif ("deutsch" in title and "synchronisation" in title) or "german.svg" in src or "german-dub" in title or "de-dub" in title:
+                                elif ("deutsch" in title and "synchronisation" in title) or "german.svg" in src or "german-dub" in title or "de-dub" in title or "de dub" in title:
                                     lang_key = 1
                             
                             if lang_key is not None:
