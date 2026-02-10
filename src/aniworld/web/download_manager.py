@@ -351,13 +351,21 @@ class DownloadQueueManager:
                         if self._stop_event.is_set() or queue_id in self._cancelled_jobs: break
                         self._update_download_status(queue_id, "downloading", current_episode=f"Downloading {episode_info}", current_episode_progress=0.0)
                         episode.link, episode.direct_link = s_url, None
+                        
+                        # Fix: explicitly set selected language and provider for the episode
+                        # This ensures the correct language is used when fetching streaming links
+                        # Use per-episode config if available, otherwise job-level defaults
+                        ep_config = (job.get("episodes_config") or {}).get(original_link) or {}
+                        episode._selected_language = ep_config.get("language") or job["language"]
+                        episode._selected_provider = ep_config.get("provider") or job["provider"]
+
                         with self._queue_lock:
                             if queue_id in self._active_downloads:
                                 for ep_item in self._active_downloads[queue_id]["episodes"]:
                                     if ep_item["url"] == original_link: ep_item["status"] = "downloading"
 
                         try:
-                            temp_anime = Anime(title=anime.title, slug=anime.slug, site=anime.site, language=anime.language, provider=anime.provider, action=anime.action, episode_list=[episode])
+                            temp_anime = Anime(title=anime.title, slug=anime.slug, site=anime.site, language=episode._selected_language, provider=episode._selected_provider, action=anime.action, episode_list=[episode])
                             if is_movie4k and not episode.get_direct_link(): continue
 
                             def web_progress_callback(d):

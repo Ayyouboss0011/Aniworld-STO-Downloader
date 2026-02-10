@@ -56,6 +56,19 @@ def _process_anime_episodes(anime: Anime) -> None:
     sanitized_anime_title = sanitize_filename(anime.title)
 
     for episode in anime:
+        # Print internal stats for debugging as requested by user
+        requested_lang = anime.language
+        requested_provider = anime.provider
+        actual_lang = getattr(episode, "_selected_language", requested_lang)
+        actual_provider = getattr(episode, "_selected_provider", requested_provider)
+        
+        print(f"\n[DEBUG] Watch Stats:")
+        print(f"  Series: {anime.title}")
+        print(f"  Episode: S{episode.season:02}E{episode.episode:03}" if episode.season != 0 else f"  Movie: {episode.episode:03}")
+        print(f"  UI/Requested: Language='{requested_lang}', Provider='{requested_provider}'")
+        print(f"  Internal/Actual: Language='{actual_lang}', Provider='{actual_provider}'")
+        print(f"  Site: {episode.site}")
+
         episode_title = format_episode_title(anime, episode)
 
         # Get direct link
