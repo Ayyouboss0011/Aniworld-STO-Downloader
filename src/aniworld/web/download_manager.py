@@ -322,6 +322,21 @@ class DownloadQueueManager:
                 for episode in anime.episode_list:
                     if self._stop_event.is_set() or queue_id in self._cancelled_jobs: break
                     original_link = episode.link
+                    
+                    # Dedizierte Movie4k-Logik
+                    if original_link.startswith("movie4k:"):
+                        logging.info(f"[DEBUG] Redirecting {original_link} to Movie4k logic")
+                        try:
+                            if self._process_movie4k_download(queue_id, original_link, job, download_dir):
+                                successful_downloads += 1
+                            else:
+                                failed_downloads += 1
+                        except Exception as movie_err:
+                            logging.error(f"[DEBUG] Movie4k critical error: {movie_err}")
+                            failed_downloads += 1
+                            self._update_download_status(queue_id, "failed", error_message=f"Movie4k error: {movie_err}")
+                        continue
+
                     is_cancelled = False
                     with self._queue_lock:
                         if queue_id in self._active_downloads:
@@ -331,22 +346,7 @@ class DownloadQueueManager:
 
                     episode_info = f"{anime.title} - Episode {episode.episode} (Season {episode.season})"
                     candidate_streams = [(1, original_link)]
-                    is_movie4k = original_link.startswith("movie4k:")
-                    if is_movie4k:
-                        try:
-                            self._update_download_status(queue_id, "downloading", current_episode="Resolving Movie4k...")
-                            m_id = original_link.split(":")[1]
-                            langs = hole_sprachliste(m_id)
-                            target_lang = langs[0] if langs else None
-                            if target_lang:
-                                s_data = hole_stream_daten(target_lang["_id"])
-                                streams = s_data.get("streams", []) if s_data else []
-                                candidate_streams = []
-                                for i, s in enumerate(reversed(streams)):
-                                    u = s.get("stream", "")
-                                    if u: candidate_streams.append((i+1, "https:" + u if u.startswith("//") else u if u.startswith("http") else "https://" + u))
-                        except: candidate_streams = [(0, original_link)]
-
+                    
                     for cand_idx, (s_num, s_url) in enumerate(candidate_streams):
                         if self._stop_event.is_set() or queue_id in self._cancelled_jobs: break
                         self._update_download_status(queue_id, "downloading", current_episode=f"Downloading {episode_info}", current_episode_progress=0.0)
@@ -487,6 +487,113 @@ class DownloadQueueManager:
             for j in self._completed_downloads:
                 if j["id"] == queue_id: return j.get("episodes", [])
             return None
+
+    def _process_movie4k_download(self, queue_id, original_link, job, download_dir):
+        """Dedizierte Logik für Movie4k Downloads um den Serien-Code nicht zu beeinflussen"""
+        from ..movie4k.movie4k_stream_finder import hole_sprachliste, hole_stream_daten, download_stream
+        
+        logging.info(f"[DEBUG] Processing Movie4k download: ID={queue_id}, Link={original_link}")
+        
+        try:
+            self._update_download_status(queue_id, "downloading", current_episode="Resolving Movie4k...")
+            m_id = original_link.split(":")[1]
+            logging.info(f"[DEBUG] Extracted Movie4k ID: {m_id}")
+            
+            # 1. Sprachliste holen
+            langs = hole_sprachliste(m_id)
+            logging.info(f"[DEBUG] Languages found: {len(langs) if langs else 0}")
+            if not langs:
+                logging.error(f"Movie4k: No languages found for {m_id}")
+                self._update_download_status(queue_id, "failed", error_message="No languages found on Movie4k")
+                return False
+
+            # 2. Beste Sprache wählen (hier einfach die erste, meist Deutsch)
+            target_lang = langs[0]
+            logging.info(f"[DEBUG] Target language selected: {target_lang}")
+            s_data = hole_stream_daten(target_lang["_id"])
+            streams = s_data.get("streams", []) if s_data else []
+            logging.info(f"[DEBUG] Streams found: {len(streams)}")
+            
+            if not streams:
+                logging.error(f"Movie4k: No streams found for {m_id}")
+                self._update_download_status(queue_id, "failed", error_message="No streams found for this language")
+                return False
+
+            # 3. Streams durchprobieren (von neu nach alt)
+            success = False
+            for i, s in enumerate(reversed(streams)):
+                if self._stop_event.is_set() or queue_id in self._cancelled_jobs: break
+                
+                u = s.get("stream", "")
+                if not u: continue
+                
+                stream_url = "https:" + u if u.startswith("//") else u if u.startswith("http") else "https://" + u
+                
+                title = s_data.get("title", job["anime_title"])
+                lang_code = s_data.get("lang", "de")
+                
+                def web_progress_callback(d):
+                    if self._stop_event.is_set() or queue_id in self._cancelled_jobs: raise KeyboardInterrupt("Stopped")
+                    
+                    with self._queue_lock:
+                        if queue_id in self._skip_flags:
+                            self._skip_flags.discard(queue_id)
+                            logging.info(f"[DEBUG] Skip requested for Movie4k job {queue_id}")
+                            raise KeyboardInterrupt("Skip")
+
+                    if d["status"] == "downloading":
+                        p = 0.0
+                        if d.get("_percent_str"):
+                            try: p = float(d["_percent_str"].replace("%", ""))
+                            except: pass
+                        p = min(100.0, max(0.0, p))
+                        s_speed, e_eta = re.sub(r"\x1b\[[0-9;]*m", "", str(d.get("_speed_str", "N/A"))).strip(), re.sub(r"\x1b\[[0-9;]*m", "", str(d.get("_eta_str", "N/A"))).strip()
+                        msg = f"Downloading {title} - {p:.1f}% | Speed: {s_speed} | ETA: {e_eta}"
+                        
+                        with self._queue_lock:
+                            if queue_id in self._active_downloads:
+                                self._active_downloads[queue_id]["current_episode"], self._active_downloads[queue_id]["current_episode_progress"] = msg, float(p)
+                                for ep_item in self._active_downloads[queue_id]["episodes"]:
+                                    if ep_item["url"] == original_link:
+                                        ep_item["status"], ep_item["progress"], ep_item["speed"], ep_item["eta"] = "downloading", p, s_speed if s_speed != "N/A" else "", e_eta if e_eta != "N/A" else ""
+                
+                # Download mit Movie4k-Engine starten
+                logging.info(f"[DEBUG] Starting download attempt for stream: {stream_url}")
+                try:
+                    success = download_stream(
+                        stream_url, 
+                        title, 
+                        lang_code, 
+                        web_progress_callback=web_progress_callback,
+                        output_dir=download_dir
+                    )
+                    logging.info(f"[DEBUG] Download success status: {success}")
+                    
+                    if success:
+                        completed = job.get("completed_episodes", 0) + 1
+                        with self._queue_lock:
+                            if queue_id in self._active_downloads:
+                                for ep_item in self._active_downloads[queue_id]["episodes"]:
+                                    if ep_item["url"] == original_link: ep_item["status"], ep_item["progress"] = "completed", 100.0
+                        self._update_download_status(queue_id, "downloading", completed_episodes=completed, current_episode=f"Completed {title}", current_episode_progress=100.0)
+                        return True
+                except KeyboardInterrupt as ki:
+                    if str(ki) == "Skip":
+                        logging.info(f"[DEBUG] Skipping Movie4k stream as requested")
+                        continue
+                    else:
+                        raise ki
+            
+            if not success:
+                with self._queue_lock:
+                    if queue_id in self._active_downloads:
+                        for ep_item in self._active_downloads[queue_id]["episodes"]:
+                            if ep_item["url"] == original_link: ep_item["status"] = "failed"
+                return False
+
+        except Exception as e:
+            logging.error(f"Movie4k processing error: {e}")
+            return False
 
     def _update_download_status(self, queue_id: int, status: str, completed_episodes: int = None, current_episode: str = None, error_message: str = None, total_episodes: int = None, current_episode_progress: float = None):
         with self._queue_lock:

@@ -368,7 +368,7 @@ def create_anime_object(stream_url, title, lang_code, provider_name):
     
     return anime
 
-def download_stream(stream_url, title, lang_code, provider_name=None):
+def download_stream(stream_url, title, lang_code, provider_name=None, web_progress_callback=None, output_dir=None):
     """
     Startet den Download für einen ausgewählten Stream.
     """
@@ -382,16 +382,20 @@ def download_stream(stream_url, title, lang_code, provider_name=None):
 
     try:
         anime = create_anime_object(stream_url, title, lang_code, provider_name)
+        if output_dir:
+            anime.output_directory = output_dir
 
         print("-" * 60)
         print("Starte Download-Prozess (AniWorld-Engine)...")
-        download(anime)
+        success = download(anime, web_progress_callback=web_progress_callback)
         print("-" * 60)
+        return success
 
     except Exception as e:
         print(f"\nFehler beim Starten des Downloads: {e}")
         import traceback
         traceback.print_exc()
+        return False
 
 def auto_download_best_stream(stream_liste, title, lang_code):
     """

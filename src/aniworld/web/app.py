@@ -760,6 +760,7 @@ class WebApp:
                 from flask import request
 
                 data = request.get_json()
+                logging.info(f"[DEBUG] Received download request: {data}")
 
                 # Check for both single episode (legacy) and multiple episodes (new)
                 episode_urls = data.get("episode_urls", [])
@@ -769,6 +770,7 @@ class WebApp:
                     episode_urls = [single_episode_url]
 
                 if not episode_urls:
+                    logging.warning("[DEBUG] Download request failed: No episode URLs provided")
                     return jsonify(
                         {"success": False, "error": "Episode URL(s) required"}
                     ), 400

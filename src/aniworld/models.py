@@ -1553,31 +1553,37 @@ class Episode:
                     return
 
                 if not self.slug:
-                    try:
-                        # Improved slug extraction for different path structures
-                        parts = self.link.rstrip("/").split("/")
-                        if "stream" in parts and parts.index("stream") + 1 < len(parts):
-                            self.slug = parts[parts.index("stream") + 1]
-                        elif "serie" in parts and parts.index("serie") + 1 < len(parts):
-                            potential_slug = parts[parts.index("serie") + 1]
-                            if potential_slug != "stream":
-                                self.slug = potential_slug
-                            elif parts.index("serie") + 2 < len(parts):
-                                self.slug = parts[parts.index("serie") + 2]
-                        elif "anime" in parts and parts.index("anime") + 1 < len(parts):
-                            self.slug = parts[parts.index("anime") + 1]
-                        else:
-                            self.slug = parts[-3]
-                    except (IndexError, ValueError):
-                        logging.warning(
-                            "Could not extract slug from link: %s", self.link
-                        )
+                    if self.link.startswith("movie4k:"):
+                        self.slug = self.link
+                    else:
+                        try:
+                            # Improved slug extraction for different path structures
+                            parts = self.link.rstrip("/").split("/")
+                            if "stream" in parts and parts.index("stream") + 1 < len(parts):
+                                self.slug = parts[parts.index("stream") + 1]
+                            elif "serie" in parts and parts.index("serie") + 1 < len(parts):
+                                potential_slug = parts[parts.index("serie") + 1]
+                                if potential_slug != "stream":
+                                    self.slug = potential_slug
+                                elif parts.index("serie") + 2 < len(parts):
+                                    self.slug = parts[parts.index("serie") + 2]
+                            elif "anime" in parts and parts.index("anime") + 1 < len(parts):
+                                self.slug = parts[parts.index("anime") + 1]
+                            else:
+                                self.slug = parts[-3]
+                        except (IndexError, ValueError):
+                            logging.warning(
+                                "Could not extract slug from link: %s", self.link
+                            )
 
                 if self.season is None:
-                    try:
-                        self.season = self._extract_season_from_link()
-                    except ValueError as err:
-                        logging.warning("Could not extract season: %s", err)
+                    if self.link.startswith("movie4k:"):
+                        self.season = 0
+                    else:
+                        try:
+                            self.season = self._extract_season_from_link()
+                        except ValueError as err:
+                            logging.warning("Could not extract season: %s", err)
 
                 if self.episode is None:
                     try:
