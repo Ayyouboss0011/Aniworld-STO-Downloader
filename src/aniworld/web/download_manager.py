@@ -64,6 +64,7 @@ class DownloadQueueManager:
 
     def stop_queue_processor(self):
         """Stop the background queue processor"""
+        threads_to_join = []
         with self._queue_lock:
             if self.is_processing:
                 self.is_processing = False
