@@ -28,13 +28,17 @@ services:
     container_name: aniworld-downloader-vpn
     build: .
     image: aniworld-new
-    command: ["aniworld", "--web-ui", "--web-port", "${WEB_PORT:-3005}", "--no-browser", "--web-expose", "--output-dir", "/app/downloads"]
+    command: ["aniworld", "--web-ui", "--web-port", "${WEB_PORT:-3005}", "--no-browser", "--web-expose"]
     network_mode: service:gluetun
     depends_on:
       - gluetun
     volumes:
-      - ${DOWNLOAD_DIR:-~/jellyfin/config/meineserien/}:/app/downloads
+      - ${SERIES_DOWNLOAD_DIR}:/app/downloads/series
+      - ${MOVIE_DOWNLOAD_DIR}:/app/downloads/movies
       - aniworld-data:/app/data
+    environment:
+      - SERIES_DOWNLOAD_PATH=/app/downloads/series
+      - MOVIE_DOWNLOAD_PATH=/app/downloads/movies
     restart: unless-stopped
 
 volumes:
