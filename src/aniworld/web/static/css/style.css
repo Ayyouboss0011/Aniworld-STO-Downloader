@@ -714,10 +714,12 @@ body[data-theme="dark"] {
     height: 100%;
     z-index: -1;
     overflow: hidden;
+    pointer-events: none;
 }
 
 body {
-    background: transparent;
+    background: var(--bg-primary);
+    overflow-y: scroll; /* Force scrollbar to prevent layout shift and handle content correctly */
 }
 
 .background-container {
@@ -1257,6 +1259,8 @@ body[data-theme="dark"] .particle:nth-child(10) {
     margin: 0 auto;
     padding: 2rem;
     min-height: calc(100vh - 80px);
+    display: flex;
+    flex-direction: column;
 }
 
 /* Search Section */
