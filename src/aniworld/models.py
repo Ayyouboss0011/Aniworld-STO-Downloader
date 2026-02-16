@@ -1560,17 +1560,27 @@ class Episode:
                             # Improved slug extraction for different path structures
                             parts = self.link.rstrip("/").split("/")
                             if "stream" in parts and parts.index("stream") + 1 < len(parts):
-                                self.slug = parts[parts.index("stream") + 1]
+                                # Handle /serie/stream/[slug] or /anime/stream/[slug]
+                                potential_slug = parts[parts.index("stream") + 1]
+                                if potential_slug == "serie" and parts.index("stream") + 2 < len(parts):
+                                    self.slug = parts[parts.index("stream") + 2]
+                                else:
+                                    self.slug = potential_slug
                             elif "serie" in parts and parts.index("serie") + 1 < len(parts):
                                 potential_slug = parts[parts.index("serie") + 1]
-                                if potential_slug != "stream":
-                                    self.slug = potential_slug
-                                elif parts.index("serie") + 2 < len(parts):
+                                if potential_slug == "stream" and parts.index("serie") + 2 < len(parts):
                                     self.slug = parts[parts.index("serie") + 2]
+                                else:
+                                    self.slug = potential_slug
                             elif "anime" in parts and parts.index("anime") + 1 < len(parts):
                                 self.slug = parts[parts.index("anime") + 1]
                             else:
                                 self.slug = parts[-3]
+                            
+                            # Final safety check: if slug is still 'serie' or 'stream', it's wrong
+                            if self.slug in ["serie", "stream"] and len(parts) > parts.index(self.slug) + 1:
+                                self.slug = parts[parts.index(self.slug) + 1]
+
                         except (IndexError, ValueError):
                             logging.warning(
                                 "Could not extract slug from link: %s", self.link

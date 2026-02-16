@@ -695,14 +695,22 @@ def get_season_episodes_details(slug: str, link: str = ANIWORLD_TO) -> Dict[int,
         if S_TO not in link:
             base_url = f"{ANIWORLD_TO}/anime/stream/{slug}"
         else:
-            if link.startswith("http") and slug in link:
-                base_url = link.rstrip("/")
+            # Clean slug from potential prefixes
+            clean_slug = slug
+            if clean_slug.startswith("serie/"):
+                clean_slug = clean_slug[6:]
+            elif clean_slug.startswith("stream/"):
+                clean_slug = clean_slug[7:]
+            elif clean_slug.startswith("serie/stream/"):
+                clean_slug = clean_slug[13:]
+
+            if link.startswith("http") and clean_slug in link:
+                # Extract series base URL from full link (stripping staffel/episode/film)
+                parts = link.split(f"/{clean_slug}")
+                base_url = f"{parts[0]}/{clean_slug}"
             else:
-                # For s.to, don't add /serie/stream/ if slug already contains /serie/
-                if slug.startswith("serie/"):
-                    base_url = f"{S_TO}/{slug}"
-                else:
-                    base_url = f"{S_TO}/serie/stream/{slug}"
+                # s.to uses /serie/SLUG structure now
+                base_url = f"{S_TO}/serie/{clean_slug}"
 
         response = _make_request(base_url)
         # Use final URL after redirects for subsequent requests
@@ -766,13 +774,22 @@ def get_season_episode_count(slug: str, link: str = ANIWORLD_TO) -> Dict[int, in
         if S_TO not in link:
             base_url = f"{ANIWORLD_TO}/anime/stream/{slug}"
         else:
-            # S.TO might use /serie/slug instead of /serie/stream/slug now, but let's stick to what we know works or redirects
-            # The search usually returns /serie/stream/slug or /serie/slug
-            # We'll use the provided link if it looks like a full URL containing the slug, otherwise construct it
-            if link.startswith("http") and slug in link:
-                base_url = link.rstrip("/")
+            # Clean slug from potential prefixes
+            clean_slug = slug
+            if clean_slug.startswith("serie/"):
+                clean_slug = clean_slug[6:]
+            elif clean_slug.startswith("stream/"):
+                clean_slug = clean_slug[7:]
+            elif clean_slug.startswith("serie/stream/"):
+                clean_slug = clean_slug[13:]
+
+            if link.startswith("http") and clean_slug in link:
+                # Extract series base URL from full link (stripping staffel/episode/film)
+                parts = link.split(f"/{clean_slug}")
+                base_url = f"{parts[0]}/{clean_slug}"
             else:
-                base_url = f"{S_TO}/serie/stream/{slug}"
+                # s.to uses /serie/SLUG structure now
+                base_url = f"{S_TO}/serie/{clean_slug}"
 
         response = _make_request(base_url)
         # Use final URL after redirects for subsequent requests (e.g. s.to/serie/stream/x -> s.to/serie/x)

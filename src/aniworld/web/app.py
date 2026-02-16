@@ -663,7 +663,16 @@ class WebApp:
 
                     if link and not link.startswith("http"):
                         # If it's just a slug, construct the full URL using the anime's specific site info
-                        if anime_stream_path:
+                        if anime_site == "s.to":
+                            # s.to search results might return slugs like 'serie/stream/x' or 'serie/x'
+                            # we want to ensure we use /serie/x
+                            clean_slug = link
+                            if clean_slug.startswith("serie/stream/"): clean_slug = clean_slug[13:]
+                            elif clean_slug.startswith("serie/"): clean_slug = clean_slug[6:]
+                            elif clean_slug.startswith("stream/"): clean_slug = clean_slug[7:]
+                            
+                            full_url = f"{config.S_TO}/serie/{clean_slug}"
+                        elif anime_stream_path:
                             full_url = f"{anime_base_url}/{anime_stream_path}/{link}"
                         else:
                             full_url = f"{anime_base_url}/{link}"
@@ -1192,7 +1201,8 @@ class WebApp:
                         base_url = config.ANIWORLD_TO
                     elif "/serie/stream/" in series_url:
                         slug = series_url.split("/serie/stream/")[-1].rstrip("/")
-                        stream_path = "serie/stream"
+                        # Use /serie/ as base for s.to now
+                        stream_path = "serie"
                         base_url = config.S_TO
                     elif config.S_TO in series_url and "/serie/" in series_url:
                         slug = series_url.split("/serie/")[-1].rstrip("/")

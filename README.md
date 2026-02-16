@@ -2,25 +2,25 @@
 
 # Aniworld-STO-Downloader
 
-Aniworld-STO-Downloader is a powerful, all-in-one tool for downloading and streaming anime from **aniworld.to** and movies/TV shows from **s.to**. It features a **modern Web Interface** for effortless management, a robust CLI for power users, and an automated tracking system to keep your library up to date.
+Aniworld-STO-Downloader ist ein leistungsstarkes All-in-One-Tool zum Herunterladen und Streamen von Anime von **aniworld.to** und Filmen/Serien von **s.to**. Es bietet ein **modernes Web-Interface**, ein robustes CLI für Power-User und ein automatisiertes Tracking-System, um deine Bibliothek aktuell zu halten.
 
 [![License](https://img.shields.io/pypi/l/aniworld?label=License&color=blue)](LICENSE)
 
 ![Aniworld-STO-Downloader - Demo](readme_image.png)
 
-## 🚀 Quick Start
+## 🚀 Schnellstart
 
-**Using Docker (Recommended):**
+**Mit Docker (Empfohlen):**
 
 ```bash
 git clone https://github.com/Ayyouboss0011/Aniworld-STO-Downloader.git
 cd Aniworld-STO-Downloader
-cp .env.example .env # Configure your paths in .env
+cp .env.example .env # Konfiguriere deine Pfade in .env
 docker-compose up -d --build
 ```
-Then open [http://localhost:3005](http://localhost:3005)
+Öffne dann [http://localhost:3005](http://localhost:3005)
 
-**Using Python (Direct):**
+**Mit Python (Direkt):**
 
 ```bash
 pip install --upgrade git+https://github.com/Ayyouboss0011/Aniworld-STO-Downloader.git@next#egg=aniworld
@@ -31,38 +31,40 @@ aniworld --web-ui
 
 ## ✨ Features
 
-- **🌐 Modern Web Interface**: Search, discover, and manage downloads via a sleek dashboard.
-- **🤖 Automated Tracking**: "Track" your favorite series; the system checks for new episodes hourly and downloads them automatically.
-- **🎬 Instant Streaming**: Watch content directly in the integrated **mpv** player with high-quality shaders.
-- **📦 Massive Provider Support**: Works with VOE, Vidmoly, Filemoon, Vidoza, Streamtape, and many more.
-- **📺 S.to & AniWorld Integration**: Seamlessly search across both platforms simultaneously.
-- **⏭️ Aniskip Integration**: Automatically skip intros and outros for a better viewing experience.
-- **👥 Syncplay Support**: Watch together with friends in perfect synchronization.
-- **🐳 Docker Ready**: Easily deployable with Docker and Docker Compose.
-- **🛠️ Flexible CLI**: Full control via command-line for automation and scripting.
+- **🌐 Modernes Web-Interface**: Suchen, Entdecken und Verwalten von Downloads über ein schickes Dashboard.
+- **🎬 Movie4k Integration**: Suche und downloade Filme direkt über die neue Movie4k-Integration.
+- **🤖 Automatisiertes Tracking**: "Tracke" deine Lieblingsserien; das System prüft stündlich auf neue Episoden und lädt diese automatisch herunter.
+- **⚡ Intelligente Warteschlange**: Verwalte mehrere Downloads gleichzeitig mit Priorisierung und automatischen Rebuilds.
+- **📺 S.to & AniWorld Integration**: Gleichzeitige Suche auf beiden Plattformen.
+- **📦 Umfangreiche Provider-Unterstützung**: VOE, Vidmoly, Filemoon, Vidoza, Streamtape, VidKing, SpeedFiles, und viele mehr.
+- **📡 DNS-over-HTTPS**: Integrierter Cloudflare DNS-Resolver zur Umgehung von Netzsperren.
+- **⏭️ Aniskip Integration**: Automatisches Überspringen von Intros und Outros.
+- **👥 Syncplay Support**: Gemeinsam mit Freunden schauen in perfekter Synchronisation.
+- **🐳 Docker Ready**: Einfache Bereitstellung mit Docker und Docker Compose (inkl. VPN-Unterstützung).
+- **🛠️ Flexibles CLI**: Volle Kontrolle über die Kommandozeile für Automatisierung.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ---
 
-## 🖥️ Web Interface
+## 🖥️ Web-Interface
 
-The Web UI is the heart of Aniworld-STO-Downloader, providing a user-friendly way to interact with your media.
+Das Web-UI ist das Herzstück des Aniworld-STO-Downloader.
 
-- **Discovery**: See popular and newly added anime right on the home screen.
-- **Unified Search**: Search for titles across both AniWorld and S.to at the same time.
-- **Visual Selector**: Easily pick seasons and episodes via an intuitive tree view.
-- **Download Manager**: Real-time progress tracking and queue management.
-- **Tracker Dashboard**: Manage your tracked series and see when the next check occurs.
-- **Multi-User & Auth**: Optional authentication for secure remote access.
+- **Discovery**: Beliebte und neu hinzugefügte Animes direkt auf dem Startbildschirm.
+- **Kombinierte Suche**: Suche gleichzeitig auf AniWorld, S.to und Movie4k.
+- **Download-Manager**: Echtzeit-Fortschrittsanzeige, Pausieren/Abbrechen und Verwaltung der Warteschlange.
+- **Erweiterte Einstellungen**: Konfiguriere Download-Pfade, Sprachprioritäten und maximale gleichzeitige Downloads.
+- **Benutzerverwaltung**: Integrierte Authentifizierung mit Admin-Panel für sicheren Fernzugriff.
+- **Sprachpräferenzen**: Setze globale Prioritäten für Sprachen (z.B. bevorzugt "German Dub" vor "German Sub").
 
-### Launching the Web UI
+### Starten des Web-UI
 
 ```bash
-# Basic launch
+# Basis-Start
 aniworld --web-ui
 
-# Advanced options
+# Erweiterte Optionen
 aniworld --web-ui --web-port 3005 --web-expose --enable-web-auth
 ```
 
@@ -70,14 +72,14 @@ aniworld --web-ui --web-port 3005 --web-expose --enable-web-auth
 
 ---
 
-## 📡 Automated Tracking
+## 📡 Automatisiertes Tracking
 
-Never miss an episode again. With the **Tracking System**, you can mark any series to be monitored.
+Verpasse nie wieder eine Episode. Mit dem **Tracking-System** kannst du Serien überwachen.
 
-1.  **Add a Tracker**: Find a series in the Web UI and check "Track for new episodes" when starting a download.
-2.  **Automatic Checks**: The system scans for new episodes every hour.
-3.  **Auto-Download**: Once a new episode is released on the provider, it's added to your queue and downloaded automatically.
-4.  **Manage**: View and trigger manual scans from the "Downloads" tab under "Active Trackers".
+1.  **Tracker hinzufügen**: Aktiviere beim Start eines Downloads im Web-UI einfach "Track for new episodes".
+2.  **Automatische Prüfung**: Das System scannt jede Stunde nach neuen Episoden.
+3.  **Auto-Download**: Neue Episoden werden automatisch zur Warteschlange hinzugefügt und mit deinen bevorzugten Einstellungen heruntergeladen.
+4.  **Verwaltung**: Überwache aktive Tracker und triggere manuelle Scans im "Downloads"-Tab.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -85,129 +87,75 @@ Never miss an episode again. With the **Tracking System**, you can mark any seri
 
 ## 🛠️ Installation & Deployment
 
-### Docker (Recommended)
+### Docker (Empfohlen)
 
-Docker ensures all dependencies (like `mpv`, `yt-dlp`) are correctly configured.
+Docker stellt sicher, dass alle Abhängigkeiten (`mpv`, `yt-dlp`, `ffmpeg`) korrekt konfiguriert sind.
 
-#### 1. Configuration (.env)
-Before starting the containers, you must configure the `.env` file. This stores your paths and settings permanently, even during updates.
-
+#### 1. Konfiguration (.env)
 ```bash
 cp .env.example .env
-nano .env # Or any editor of your choice
+nano .env
 ```
-
-Key variables:
-- `DOWNLOAD_DIR`: The path on your host where files should be saved (e.g., `/home/user/media/anime`).
-- `WEB_PORT`: The port for the Web UI (Default: `3005`).
+Wichtige Variablen:
+- `DOWNLOAD_DIR`: Pfad auf dem Host für die Downloads.
+- `WEB_PORT`: Port für das Web-UI (Standard: `3005`).
 
 #### 2. Start (Standard)
-For a normal setup without VPN:
 ```bash
 docker-compose up -d --build
 ```
 
-#### 3. Start with VPN (Gluetun)
-If you want to use a VPN, use `docker-compose.vpn.yml`. This uses **Gluetun** to route all Aniworld traffic through a VPN tunnel.
+#### 3. Start mit VPN (Gluetun)
+Nutze `docker-compose.vpn.yml`, um den gesamten Traffic über einen VPN (via Gluetun) zu leiten. Konfiguriere dazu die VPN-Sektion in der `.env`.
 
-1. Enter your VPN credentials in `.env` (Provider, User, Password/Key).
-2. Start the setup:
 ```bash
 docker-compose -f docker-compose.vpn.yml up -d --build
 ```
 
-*Note: In VPN mode, the Web UI is exposed through the Gluetun container. All traffic flows securely through the tunnel.*
+### Manuelle Installation
 
-#### Docker-Compose Structure (Standard)
-```yaml
-services:
-  aniworld:
-    container_name: aniworld-downloader
-    build: .
-    ports:
-      - "${WEB_PORT}:${WEB_PORT}"
-    volumes:
-      - ${DOWNLOAD_DIR}:/app/downloads
-      - aniworld-data:/app/data
-    restart: unless-stopped
-```
-
-### Manual Installation
-
-Requires **Python 3.9+** and **Git**.
+Benötigt **Python 3.9+**.
 
 ```bash
 pip install --upgrade git+https://github.com/Ayyouboss0011/Aniworld-STO-Downloader.git@next#egg=aniworld
 ```
 
-*Note: For streaming features, ensure `mpv` is installed on your system.*
+*Hinweis: Für Streaming-Funktionen muss `mpv` installiert sein.*
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ---
 
-## ⌨️ Command-Line Power
+## ⌨️ Kommandozeile (CLI)
 
-Aniworld-STO-Downloader remains a powerful CLI tool for automation.
-
-| Feature | Command Example |
+| Feature | Befehl / Beispiel |
 | :--- | :--- |
-| **Interactive Menu** | `aniworld` |
-| **Download Episode** | `aniworld --episode [URL] --output-dir ./my-anime` |
-| **Watch Instantly** | `aniworld --episode [URL] --action Watch --aniskip` |
-| **Syncplay** | `aniworld --episode [URL] --action Syncplay --syncplay-password secret` |
+| **Interaktives Menü** | `aniworld` |
+| **Web-Interface** | `aniworld --web-ui` |
+| **Download Episode** | `aniworld --episode [URL] --output-dir ./downloads` |
+| **Direkt Streamen** | `aniworld --episode [URL] --action Watch --aniskip` |
+| **Syncplay** | `aniworld --episode [URL] --action Syncplay` |
 | **Anime4K (Upscaling)**| `aniworld --anime4k High` |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ---
 
-## 📚 Library Usage (Python API)
+## 🤝 Support & Entwicklung
 
-Integrate Aniworld-STO-Downloader into your own scripts:
+Dieses Projekt basiert auf der Arbeit von [AniWorld-Downloader](https://github.com/phoenixthrush/AniWorld-Downloader). Alle neuen Features (Web-Interface, Tracking, S.to/Movie4k Integration) wurden von [Ayyouboss0011](https://github.com/Ayyouboss0011/Aniworld-STO-Downloader) entwickelt.
 
-```python
-from aniworld.models import Anime, Episode
-
-# Define an episode
-ep = Episode(slug="demon-slayer", season=1, episode=1)
-
-# Get direct streaming links
-link = ep.get_direct_link(provider="VOE", language="German Sub")
-print(f"Watch here: {link}")
-```
+- **Issues**: [Bug melden](https://github.com/Ayyouboss0011/Aniworld-STO-Downloader/issues)
+- **Discord**: Join `phoenixthrush` oder `tmaster067`
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ---
 
-## 🤝 Support & Development
+## ⚖️ Rechtliches
 
-This project is based on the great work of the original [AniWorld-Downloader](https://github.com/phoenixthrush/AniWorld-Downloader) by **phoenixthrush** and **tmaster067**.
+**Disclaimer**: Dieses Tool ist ein Scraper für öffentlich zugängliche Inhalte. Es werden keine Dateien gehostet. Die Nutzer sind für die Einhaltung lokaler Urheberrechtsgesetze selbst verantwortlich.
 
-Since the fork, all new features (such as the modern Web Interface, automated tracking, and S.to integration) have been completely developed by me ([Ayyouboss0011](https://github.com/Ayyouboss0011/Aniworld-STO-Downloader)).
-
-- **Discord**: Join us on Discord (`phoenixthrush` or `tmaster067`)
-- **Issues**: [Report a bug](https://github.com/Ayyouboss0011/Aniworld-STO-Downloader/issues)
-- **Docs**: [Full Documentation](https://www.phoenixthrush.com/Aniworld-STO-Downloader-Docs/)
-
-### Contribution
-
-```bash
-git clone https://github.com/Ayyouboss0011/Aniworld-STO-Downloader.git
-cd Aniworld-STO-Downloader
-pip install -e .
-pytest tests/
-```
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
----
-
-## ⚖️ Legal & License
-
-**Disclaimer**: Aniworld-STO-Downloader is a scraper designed to facilitate access to publicly available content. It does not host any files. Users are responsible for complying with local copyright laws.
-
-Licensed under the **MIT License**.
+Lizenziert unter der **MIT License**.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
