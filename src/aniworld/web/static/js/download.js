@@ -1,5 +1,5 @@
 /**
- * download.js - Download modal and episode management for Aniworld-STO-Downloader Web Interface
+ * download.js - Download modal and episode management for LankabelTV Web Interface
  */
 
 import API from './api.js';

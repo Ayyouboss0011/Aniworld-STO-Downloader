@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Suggest an idea or improvement for Aniworld-STO-Downloader
+about: Suggest an idea or improvement for LankabelTV
 title: ''
 labels: enhancement
 assignees: ''

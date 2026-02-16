@@ -1,5 +1,5 @@
 """
-Flask web application for Aniworld-STO-Downloader
+Flask web application for LankabelTV
 """
 
 import logging
@@ -21,7 +21,7 @@ from ..movie4k.movie4k_stream_finder import hole_sprachliste, hole_stream_daten
 
 
 class WebApp:
-    """Flask web application wrapper for Aniworld-STO-Downloader"""
+    """Flask web application wrapper for LankabelTV"""
 
     def __init__(self, host="127.0.0.1", port=5000, debug=False, arguments=None):
         """
@@ -1490,7 +1490,7 @@ class WebApp:
 
     def run(self):
         """Run the Flask web application."""
-        logging.info("Starting Aniworld-STO-Downloader Web Interface...")
+        logging.info("Starting LankabelTV Web Interface...")
         logging.info(f"Server running at http://{self.host}:{self.port}")
 
         try:
@@ -1556,7 +1556,7 @@ def start_web_interface(arguments=None, port=5000, debug=False):
     )
 
     print("\n" + "=" * 69)
-    print("🌐 Aniworld-STO-Downloader Web Interface")
+    print("🌐 LankabelTV Web Interface")
     print("=" * 69)
     print(f"📍 Server Address:   {server_address}")
     print(f"🔐 Security Mode:    {auth_status}")

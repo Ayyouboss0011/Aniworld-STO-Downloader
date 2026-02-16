@@ -1,5 +1,5 @@
 """
-Database models and utilities for Aniworld-STO-Downloader web authentication
+Database models and utilities for LankabelTV web authentication
 """
 
 import hashlib

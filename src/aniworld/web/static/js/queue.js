@@ -1,5 +1,5 @@
 /**
- * queue.js - Download queue management for Aniworld-STO-Downloader Web Interface
+ * queue.js - Download queue management for LankabelTV Web Interface
  */
 
 import API from './api.js';

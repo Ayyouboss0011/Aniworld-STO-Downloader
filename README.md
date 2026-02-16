@@ -1,20 +1,20 @@
 <a id="readme-top"></a>
 
-# Aniworld-STO-Downloader
+# LankabelTV
 
-Aniworld-STO-Downloader ist ein leistungsstarkes All-in-One-Tool zum Herunterladen und Streamen von Anime von **aniworld.to** und Filmen/Serien von **s.to**. Es bietet ein **modernes Web-Interface**, ein robustes CLI für Power-User und ein automatisiertes Tracking-System, um deine Bibliothek aktuell zu halten.
+LankabelTV ist ein leistungsstarkes All-in-One-Tool zum Herunterladen und Streamen von Anime von **aniworld.to** und Filmen/Serien von **s.to**. Es bietet ein **modernes Web-Interface**, ein robustes CLI für Power-User und ein automatisiertes Tracking-System, um deine Bibliothek aktuell zu halten.
 
 [![License](https://img.shields.io/pypi/l/aniworld?label=License&color=blue)](LICENSE)
 
-![Aniworld-STO-Downloader - Demo](readme_image.png)
+![LankabelTV - Demo](readme_image.png)
 
 ## 🚀 Schnellstart
 
 **Mit Docker (Empfohlen):**
 
 ```bash
-git clone https://github.com/Ayyouboss0011/Aniworld-STO-Downloader.git
-cd Aniworld-STO-Downloader
+git clone https://github.com/Ayyouboss0011/LankabelTV.git
+cd LankabelTV
 cp .env.example .env # Konfiguriere deine Pfade in .env
 docker-compose up -d --build
 ```
@@ -23,7 +23,7 @@ docker-compose up -d --build
 **Mit Python (Direkt):**
 
 ```bash
-pip install --upgrade git+https://github.com/Ayyouboss0011/Aniworld-STO-Downloader.git@next#egg=aniworld
+pip install --upgrade git+https://github.com/Ayyouboss0011/LankabelTV.git@next#egg=aniworld
 aniworld --web-ui
 ```
 
@@ -49,7 +49,7 @@ aniworld --web-ui
 
 ## 🖥️ Web-Interface
 
-Das Web-UI ist das Herzstück des Aniworld-STO-Downloader.
+Das Web-UI ist das Herzstück des LankabelTV.
 
 - **Discovery**: Beliebte und neu hinzugefügte Animes direkt auf dem Startbildschirm.
 - **Kombinierte Suche**: Suche gleichzeitig auf AniWorld, S.to und Movie4k.
@@ -117,7 +117,7 @@ docker-compose -f docker-compose.vpn.yml up -d --build
 Benötigt **Python 3.9+**.
 
 ```bash
-pip install --upgrade git+https://github.com/Ayyouboss0011/Aniworld-STO-Downloader.git@next#egg=aniworld
+pip install --upgrade git+https://github.com/Ayyouboss0011/LankabelTV.git@next#egg=aniworld
 ```
 
 *Hinweis: Für Streaming-Funktionen muss `mpv` installiert sein.*
@@ -143,9 +143,9 @@ pip install --upgrade git+https://github.com/Ayyouboss0011/Aniworld-STO-Download
 
 ## 🤝 Support & Entwicklung
 
-Dieses Projekt basiert auf der Arbeit von [AniWorld-Downloader](https://github.com/phoenixthrush/AniWorld-Downloader). Alle neuen Features (Web-Interface, Tracking, S.to/Movie4k Integration) wurden von [Ayyouboss0011](https://github.com/Ayyouboss0011/Aniworld-STO-Downloader) entwickelt.
+Dieses Projekt basiert auf der Arbeit von [AniWorld-Downloader](https://github.com/phoenixthrush/AniWorld-Downloader). Alle neuen Features (Web-Interface, Tracking, S.to/Movie4k Integration) wurden von [Ayyouboss0011](https://github.com/Ayyouboss0011/LankabelTV) entwickelt.
 
-- **Issues**: [Bug melden](https://github.com/Ayyouboss0011/Aniworld-STO-Downloader/issues)
+- **Issues**: [Bug melden](https://github.com/Ayyouboss0011/LankabelTV/issues)
 - **Discord**: Join `phoenixthrush` oder `tmaster067`
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>

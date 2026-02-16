@@ -1,5 +1,5 @@
 """
-Download Queue Manager for Aniworld-STO-Downloader
+Download Queue Manager for LankabelTV
 Handles global download queue processing and status tracking
 """
 

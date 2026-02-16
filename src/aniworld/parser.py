@@ -334,7 +334,7 @@ def _handle_version() -> None:
     """Handle version information display."""
     cowsay = Rf"""
 _____________________________
-< Aniworld-STO-Downloader v.{config.VERSION} >
+< LankabelTV v.{config.VERSION} >
 -----------------------------
         \   ^__^
          \  (oo)\_______
@@ -537,7 +537,7 @@ def _handle_debug_mode() -> None:
     """Handle debug mode setup."""
     logging.getLogger().setLevel(logging.DEBUG)
     logging.debug("=============================================")
-    logging.debug("   Welcome to Aniworld-STO-Downloader v.%s!   ", config.VERSION)
+    logging.debug("   Welcome to LankabelTV v.%s!   ", config.VERSION)
     logging.debug("=============================================\n")
 
     system = platform.system()
@@ -643,7 +643,7 @@ def _handle_hdfilme_episodes(args: argparse.Namespace) -> None:
 
 def parse_arguments() -> argparse.Namespace:
     """
-    Parse command-line arguments for the Aniworld-STO-Downloader.
+    Parse command-line arguments for the LankabelTV.
 
     Returns:
         Parsed command-line arguments

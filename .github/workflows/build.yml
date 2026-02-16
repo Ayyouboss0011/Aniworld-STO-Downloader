@@ -181,10 +181,10 @@ jobs:
             --include-data-file=src/aniworld/aniskip/scripts/autoexit.lua=aniworld/aniskip/scripts/autoexit.lua \
             --output-filename="aniworld-${VERSION}-${{ matrix.filename }}${{ matrix.ext }}" \
             --company-name="Phoenixthrush UwU" \
-            --product-name="Aniworld-STO-Downloader" \
+            --product-name="LankabelTV" \
             --file-version="$VERSION" \
             --product-version="$VERSION" \
-            --file-description="Aniworld-STO-Downloader is a command-line tool for downloading and streaming content from aniworld.to and s.to. " \
+            --file-description="LankabelTV is a command-line tool for downloading and streaming content from aniworld.to and s.to. " \
             --copyright="Copyright (c) 2024-${YEAR} phoenixthrush, Tmaster055" \
             ${{ matrix.icon }} \
             "$TEMP_MAIN_PATH"

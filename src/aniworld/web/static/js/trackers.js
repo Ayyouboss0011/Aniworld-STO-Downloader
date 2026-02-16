@@ -1,5 +1,5 @@
 /**
- * trackers.js - Series tracker management for Aniworld-STO-Downloader Web Interface
+ * trackers.js - Series tracker management for LankabelTV Web Interface
  */
 
 import API from './api.js';

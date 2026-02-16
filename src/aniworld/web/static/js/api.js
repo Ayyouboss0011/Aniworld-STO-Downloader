@@ -1,5 +1,5 @@
 /**
- * api.js - Centralized API calls for Aniworld-STO-Downloader Web Interface
+ * api.js - Centralized API calls for LankabelTV Web Interface
  */
 
 const API = {

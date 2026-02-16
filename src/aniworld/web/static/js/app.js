@@ -1,5 +1,5 @@
 /**
- * app.js - Main entry point for Aniworld-STO-Downloader Web Interface
+ * app.js - Main entry point for LankabelTV Web Interface
  */
 
 import API from './api.js';
@@ -10,7 +10,7 @@ import { Queue } from './queue.js';
 import { Trackers } from './trackers.js';
 
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('Aniworld-STO-Downloader Web Interface loaded');
+    console.log('LankabelTV Web Interface loaded');
 
     // Get remaining UI elements not moved to modules
     const versionDisplay = document.getElementById('version-display');

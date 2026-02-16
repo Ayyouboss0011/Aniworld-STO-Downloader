@@ -1,3 +1,3 @@
 """
-Aniworld-STO-Downloader Web Interface
+LankabelTV Web Interface
 """

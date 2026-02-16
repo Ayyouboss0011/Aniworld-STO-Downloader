@@ -7,7 +7,7 @@ authors = [
 maintainers = [
   { name="Phoenixthrush UwU", email="contact@phoenixthrush.com" }
 ]
-description = "Aniworld-STO-Downloader is a command-line tool for downloading and streaming anime, series and movies, compatible with Windows, macOS, and Linux."
+description = "LankabelTV is a command-line tool for downloading and streaming anime, series and movies, compatible with Windows, macOS, and Linux."
 keywords = [
     "anime", 
     "aniworld", 
@@ -66,13 +66,13 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/phoenixthrush/Aniworld-STO-Downloader"
-Documentation = "https://github.com/phoenixthrush/Aniworld-STO-Downloader/blob/main/README.md"
-Repository = "https://github.com/phoenixthrush/Aniworld-STO-Downloader.git"
-"Bug Tracker" = "https://github.com/phoenixthrush/Aniworld-STO-Downloader/issues"
-Changelog = "https://github.com/phoenixthrush/Aniworld-STO-Downloader/commits"
-"Source Code" = "https://github.com/phoenixthrush/Aniworld-STO-Downloader"
-"Download" = "https://github.com/phoenixthrush/Aniworld-STO-Downloader/archive/refs/heads/main.zip"
+Homepage = "https://github.com/phoenixthrush/LankabelTV"
+Documentation = "https://github.com/phoenixthrush/LankabelTV/blob/main/README.md"
+Repository = "https://github.com/phoenixthrush/LankabelTV.git"
+"Bug Tracker" = "https://github.com/phoenixthrush/LankabelTV/issues"
+Changelog = "https://github.com/phoenixthrush/LankabelTV/commits"
+"Source Code" = "https://github.com/phoenixthrush/LankabelTV"
+"Download" = "https://github.com/phoenixthrush/LankabelTV/archive/refs/heads/main.zip"
 Funding = "https://github.com/sponsors/phoenixthrush"
 
 [project.scripts]

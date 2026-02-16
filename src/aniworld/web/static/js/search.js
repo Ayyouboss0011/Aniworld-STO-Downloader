@@ -1,5 +1,5 @@
 /**
- * search.js - Search functionality for Aniworld-STO-Downloader Web Interface
+ * search.js - Search functionality for LankabelTV Web Interface
  */
 
 import API from './api.js';
