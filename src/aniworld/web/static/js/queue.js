@@ -38,6 +38,26 @@ export const Queue = {
         this.state.progressInterval = setInterval(() => this.updateDisplay(), 1000);
     },
 
+    init() {
+        if (this.elements.stopModal) {
+            const cancelBtn = document.getElementById('cancel-stop');
+            const closeBtn = document.getElementById('close-stop-modal');
+            const confirmBtn = document.getElementById('confirm-stop');
+
+            const closeModal = () => {
+                this.elements.stopModal.style.display = 'none';
+                document.body.classList.remove('modal-open');
+            };
+
+            cancelBtn?.addEventListener('click', closeModal);
+            closeBtn?.addEventListener('click', closeModal);
+            confirmBtn?.addEventListener('click', () => {
+                this.executeCancel();
+                closeModal();
+            });
+        }
+    },
+
     async updateDisplay() {
         try {
             const data = await API.getQueueStatus();
@@ -172,7 +192,10 @@ export const Queue = {
                     qItem.querySelector('.stop-download-btn')?.addEventListener('click', (e) => {
                         e.stopPropagation();
                         this.state.currentQueueIdToCancel = item.id;
-                        if (this.elements.stopModal) this.elements.stopModal.style.display = 'flex';
+                        if (this.elements.stopModal) {
+                            this.elements.stopModal.style.display = 'flex';
+                            document.body.classList.add('modal-open');
+                        }
                     });
                 } else {
                     qItem.querySelector('.delete-download-btn')?.addEventListener('click', () => {

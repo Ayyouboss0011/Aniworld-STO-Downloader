@@ -144,9 +144,11 @@ export const Trackers = {
 
         titleEl.textContent = tracker.anime_title;
         modal.style.display = 'flex';
+        document.body.classList.add('modal-open');
 
         const closeModal = () => {
             modal.style.display = 'none';
+            document.body.classList.remove('modal-open');
             // Cleanup event listeners
             confirmBtn.replaceWith(confirmBtn.cloneNode(true));
             cancelBtn.replaceWith(cancelBtn.cloneNode(true));

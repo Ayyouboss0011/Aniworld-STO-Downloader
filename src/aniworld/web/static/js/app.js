@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Initialize modules
     UI.initializeTheme();
     await Download.init();
+    Queue.init();
     loadVersionInfo();
     Queue.checkStatus();
     Search.loadPopularAndNewAnime();
@@ -53,11 +54,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('select-all')?.addEventListener('click', () => Download.selectAll());
     document.getElementById('deselect-all')?.addEventListener('click', () => Download.deselectAll());
 
-    // Stop modal listeners
-    document.getElementById('close-stop-modal')?.addEventListener('click', () => { Queue.elements.stopModal.style.display = 'none'; });
-    document.getElementById('cancel-stop')?.addEventListener('click', () => { Queue.elements.stopModal.style.display = 'none'; });
-    document.getElementById('confirm-stop')?.addEventListener('click', () => Queue.executeCancel());
-
+    // Theme toggle
     if (themeToggle) themeToggle.addEventListener('click', () => UI.toggleTheme());
 
     if (navTitle) {

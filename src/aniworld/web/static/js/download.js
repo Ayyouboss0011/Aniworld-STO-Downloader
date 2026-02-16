@@ -152,11 +152,17 @@ export const Download = {
             if (this.elements.episodeTree) this.elements.episodeTree.style.display = 'block';
         }
 
-        if (this.elements.downloadModal) this.elements.downloadModal.style.display = 'flex';
+        if (this.elements.downloadModal) {
+            this.elements.downloadModal.style.display = 'flex';
+            document.body.classList.add('modal-open');
+        }
     },
 
     hideModal() {
-        if (this.elements.downloadModal) this.elements.downloadModal.style.display = 'none';
+        if (this.elements.downloadModal) {
+            this.elements.downloadModal.style.display = 'none';
+            document.body.classList.remove('modal-open');
+        }
         
         // Clear episode tree content immediately to prevent stale data on re-open
         if (this.elements.episodeTree) this.elements.episodeTree.innerHTML = '';
