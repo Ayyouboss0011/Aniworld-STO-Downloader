@@ -126,16 +126,63 @@ export const Trackers = {
             item.dataset.lastSeason = t.last_season;
             item.dataset.lastEpisode = t.last_episode;
 
-            item.querySelector('.delete-tracker-btn').addEventListener('click', async () => {
-                if (confirm('Remove tracker?')) {
-                    try {
-                        const data = await API.deleteTracker(t.id);
-                        if (data.success) this.updateDisplay();
-                    } catch (err) { console.error('Delete tracker error:', err); }
-                }
+            item.querySelector('.delete-tracker-btn').addEventListener('click', () => {
+                this.showDeleteConfirmation(t);
             });
             this.elements.trackersList.appendChild(item);
         });
+    },
+
+    showDeleteConfirmation(tracker) {
+        const modal = document.getElementById('tracker-modal');
+        const titleEl = document.getElementById('tracker-modal-title');
+        const confirmBtn = document.getElementById('confirm-tracker-remove');
+        const cancelBtn = document.getElementById('cancel-tracker-remove');
+        const closeBtn = document.getElementById('close-tracker-modal');
+
+        if (!modal || !titleEl || !confirmBtn) return;
+
+        titleEl.textContent = tracker.anime_title;
+        modal.style.display = 'flex';
+
+        const closeModal = () => {
+            modal.style.display = 'none';
+            // Cleanup event listeners
+            confirmBtn.replaceWith(confirmBtn.cloneNode(true));
+            cancelBtn.replaceWith(cancelBtn.cloneNode(true));
+            closeBtn.replaceWith(closeBtn.cloneNode(true));
+        };
+
+        const onConfirm = async () => {
+            try {
+                const data = await API.deleteTracker(tracker.id);
+                if (data.success) {
+                    this.updateDisplay();
+                    showNotification('Tracker removed', 'success');
+                } else {
+                    showNotification(data.error || 'Failed to remove tracker', 'error');
+                }
+            } catch (err) {
+                console.error('Delete tracker error:', err);
+                showNotification('Failed to remove tracker', 'error');
+            }
+            closeModal();
+        };
+
+        // We need to re-select after clone if we want to add listeners again, 
+        // but easier to just use the clones or not clone and use once: true
+        const newConfirmBtn = document.getElementById('confirm-tracker-remove');
+        const newCancelBtn = document.getElementById('cancel-tracker-remove');
+        const newCloseBtn = document.getElementById('close-tracker-modal');
+
+        newConfirmBtn.addEventListener('click', onConfirm);
+        newCancelBtn.addEventListener('click', closeModal);
+        newCloseBtn.addEventListener('click', closeModal);
+        
+        // Close on clicking overlay
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        }, { once: true });
     },
 
     async addTrackerForSeries(currentDownloadData, availableEpisodes, language, provider) {

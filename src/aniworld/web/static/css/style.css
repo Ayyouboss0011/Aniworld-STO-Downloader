@@ -1474,7 +1474,7 @@ body[data-theme="dark"] .results-section {
     opacity: 0;
     transform: translateY(20px);
     animation: slideInUp 0.6s ease-out forwards;
-    height: 100%; /* Important for grid consistency */
+    align-items: stretch;
 }
 
 .anime-card:nth-child(1) { animation-delay: 0.1s; }
@@ -1490,12 +1490,14 @@ body[data-theme="dark"] .results-section {
     position: relative;
     background: var(--bg-tertiary);
     border-right: 1px solid var(--card-border);
+    aspect-ratio: 220 / 330;
 }
 
 .anime-card-poster img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    display: block;
     transition: transform 0.5s ease;
 }
 
@@ -1568,17 +1570,6 @@ body[data-theme="dark"] .results-section {
     margin-right: 4px;
 }
 
-.anime-description {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    margin-bottom: 1rem;
-    line-height: 1.4;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
 
 .anime-title {
     font-size: 1.25rem; /* Larger font */
@@ -1759,8 +1750,9 @@ body[data-theme="dark"] .results-section {
     background: var(--card-bg);
     backdrop-filter: blur(10px);
     border-radius: 8px;
-    padding: 1rem;
-    margin: 0 10rem 1.5rem 10rem;
+    padding: 1.5rem;
+    margin: 0 auto 1.5rem auto;
+    max-width: 1200px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
     border-left: 3px solid #4299e1;
     transition: background 0.3s ease;
@@ -2480,6 +2472,8 @@ body[data-theme="dark"] .episode-progress-text {
     appearance: none;
     width: 20px;
     height: 20px;
+    min-width: 20px;
+    min-height: 20px;
     border: 2px solid var(--border-color);
     border-radius: 4px;
     background: var(--input-bg);
@@ -2487,6 +2481,7 @@ body[data-theme="dark"] .episode-progress-text {
     position: relative;
     transition: all 0.3s ease;
     margin: 0;
+    flex-shrink: 0;
 }
 
 .season-checkbox:checked,
@@ -2576,10 +2571,12 @@ body[data-theme="dark"] .episode-progress-text {
     gap: 0.25rem;
 }
 
-.episode-lang-badges, .episode-provider-badges {
-    display: flex;
-    gap: 0.25rem;
-}
+    .episode-lang-badges, .episode-provider-badges {
+        display: flex;
+        gap: 0.25rem;
+        flex-wrap: wrap; /* Prevent overflow if many badges */
+        justify-content: flex-end;
+    }
 
 .lang-badge, .provider-badge {
     font-size: 0.7rem;
@@ -2682,10 +2679,18 @@ body[data-theme="dark"] .episode-progress-text {
     color: white;
 }
 
-.primary-btn:hover {
+.primary-btn:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(66, 153, 225, 0.4);
     background: #3182ce;
+}
+
+.primary-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #718096;
+    box-shadow: none;
+    transform: none;
 }
 
 .secondary-btn {
@@ -2733,6 +2738,102 @@ body[data-theme="dark"] .episode-progress-text {
     transform: none;
 }
 
+/* Custom Select Styles */
+.custom-select {
+    position: relative;
+    display: inline-block;
+    min-width: 150px;
+    font-family: inherit;
+    z-index: 1001; /* Above other modal elements if needed */
+}
+
+.select-selected {
+    background-color: var(--tree-header-bg);
+    color: var(--text-primary);
+    padding: 8px 32px 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.85rem;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.select-selected:hover {
+    border-color: #667eea;
+}
+
+.select-selected:after {
+    position: absolute;
+    content: "";
+    top: 50%;
+    right: 12px;
+    width: 0;
+    height: 0;
+    border: 6px solid transparent;
+    border-color: var(--text-tertiary) transparent transparent transparent;
+    transform: translateY(-25%);
+    transition: transform 0.3s ease;
+}
+
+.custom-select.select-arrow-active .select-selected:after {
+    border-color: transparent transparent var(--text-tertiary) transparent;
+    transform: translateY(-75%);
+}
+
+.select-items {
+    position: absolute;
+    background-color: var(--modal-bg);
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 99;
+    border: 1px solid var(--border-color);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: -2px;
+    animation: fadeInDown 0.2s ease-out;
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.select-items div {
+    color: var(--text-secondary);
+    padding: 10px 12px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.85rem;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.select-items div:hover {
+    background-color: var(--tree-hover);
+    color: var(--text-primary);
+}
+
+.select-items div.same-as-selected {
+    background-color: rgba(102, 126, 234, 0.1);
+    color: #667eea;
+    font-weight: 600;
+}
+
+.select-hide {
+    display: none;
+}
+
 /* Responsive Design */
 /* Large screens - more cards per row */
 @media (min-width: 1400px) {
@@ -2777,6 +2878,7 @@ body[data-theme="dark"] .episode-progress-text {
     .anime-card-poster {
         width: 120px;
         min-width: 120px;
+        height: auto;
     }
     .nav-container {
         padding: 1rem;
@@ -2821,7 +2923,53 @@ body[data-theme="dark"] .episode-progress-text {
     }
 
     .results-section {
-        margin: 0 1rem 2rem 1rem;
+        margin: 0 0.5rem 1.5rem 0.5rem;
+        padding: 1rem;
+    }
+
+    .queue-section {
+        padding: 1rem;
+        margin: 0 0.5rem 1.5rem 0.5rem;
+    }
+
+    .queue-item-progress {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 0.5rem;
+    }
+
+    .queue-progress-bar {
+        max-width: none !important;
+    }
+
+    .queue-progress-text {
+        text-align: left !important;
+        min-width: 0 !important;
+    }
+
+    .ep-info-row {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 0.5rem;
+    }
+
+    .ep-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .ep-progress-container {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 0.25rem;
+    }
+
+    .ep-progress-text {
+        text-align: right;
+    }
+
+    .trackers-section .queue-list {
+        grid-template-columns: 1fr !important;
     }
 
     .anime-card {
@@ -2830,19 +2978,254 @@ body[data-theme="dark"] .episode-progress-text {
         flex: 1 1 100%;
     }
 
+    .queue-item-header {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 0.75rem;
+    }
+
+    .queue-item-header .queue-actions-wrapper {
+        width: 100%;
+        justify-content: space-between; /* Space out status and buttons */
+    }
+
+    .queue-item-header .queue-actions-wrapper .queue-item-status {
+        margin-right: auto;
+    }
+
+    .queue-list {
+        gap: 1rem;
+    }
+
+    .queue-item {
+        padding: 1rem;
+    }
+
+    .queue-progress-bar {
+        height: 18px !important; /* Slightly thicker for mobile visibility */
+    }
+
+    .modal-header {
+        padding: 0.75rem 1rem;
+    }
+
+    .modal-header h3 {
+        font-size: 1.1rem;
+    }
+
+    .episode-item-tree {
+        padding: 0.25rem 0.4rem !important;
+        flex-wrap: nowrap; /* Keep it on one line if possible */
+        gap: 0.4rem;
+        align-items: center;
+    }
+
+    .episode-item-tree:hover {
+        padding-left: 0.4rem !important;
+    }
+
+    .episode-checkbox-wrapper {
+        min-width: unset;
+        width: auto;
+        gap: 0.4rem;
+        flex: 0 0 auto;
+    }
+
+    .episode-label {
+        font-size: 0.8rem;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    .episode-lang-wrapper {
+        min-width: unset;
+        flex: 1;
+        align-items: flex-start;
+        padding-left: 0;
+        gap: 0.15rem;
+        overflow: hidden;
+    }
+
+    .episode-lang-badges, .episode-provider-badges {
+        justify-content: flex-start;
+        gap: 0.15rem;
+        flex-wrap: wrap;
+    }
+
+    .lang-badge, .provider-badge {
+        padding: 1px 4px;
+        font-size: 0.65rem;
+        line-height: 1.2;
+        border-radius: 3px;
+    }
+
     .modal-content {
-        margin: 1rem;
-        width: calc(100% - 2rem);
-        max-height: 90vh;
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        max-height: 100vh;
+        border-radius: 0;
+    }
+
+    .modal-body {
+        padding: 0.75rem;
+        -webkit-overflow-scrolling: touch;
+        overflow-y: auto;
+    }
+
+    .download-info {
+        margin-bottom: 0.5rem;
+    }
+
+    .download-info p {
+        font-size: 0.8rem;
+        margin-bottom: 0.3rem;
+    }
+
+    .episode-selection {
+        margin-top: 0.75rem;
+        padding-top: 0.75rem;
+    }
+
+    .selection-header {
+        flex-direction: row;
+        align-items: center !important;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .selection-header h4 {
+        font-size: 0.9rem;
+    }
+
+    .selection-controls {
+        width: auto;
+        display: flex;
+        gap: 0.4rem;
+    }
+
+    .control-btn {
+        width: auto;
+        padding: 6px 10px;
+        text-align: center;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .episode-tree {
+        max-height: calc(100vh - 350px);
+        min-height: 150px;
+    }
+
+    .season-header {
+        padding: 0.6rem 0.75rem !important;
+    }
+
+    .season-label {
+        font-size: 0.9rem;
     }
 
     .modal-footer {
-        flex-direction: column;
+        flex-direction: column-reverse;
+        padding: 0.75rem;
+        gap: 0.75rem;
+        background: var(--modal-bg);
+        box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .modal-actions {
+        width: 100%;
+        flex-direction: row;
+        gap: 0.5rem;
+    }
+
+    .selected-count {
+        width: 100%;
+        text-align: center;
+        padding: 0.4rem;
+        background: var(--bg-tertiary);
+        border-radius: 6px;
+        font-size: 0.85rem;
     }
 
     .primary-btn,
     .secondary-btn {
         width: 100%;
+        padding: 12px; /* Sufficient touch target, more compact */
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        min-width: unset;
+    }
+
+    .tracker-option {
+        padding: 0.75rem;
+        margin-top: 0.75rem !important;
+    }
+
+    .stop-download-btn, .delete-download-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 0.9rem;
+    }
+
+    .change-server-btn {
+        width: 100%;
+        padding: 10px;
+    }
+
+    .episode-checkbox, .season-checkbox {
+        width: 18px;
+        height: 18px;
+    }
+
+    .season-checkbox:checked::before, .episode-checkbox:checked::before {
+        font-size: 12px;
+    }
+
+    .season-header {
+        padding: 0.75rem 1rem !important;
+    }
+
+    .season-header::after {
+        font-size: 1.2rem;
+    }
+
+    .lang-badge, .provider-badge {
+        padding: 6px 10px;
+        font-size: 0.85rem;
+    }
+
+    .tracker-option {
+        padding: 1rem;
+        background: var(--bg-tertiary);
+        border-radius: 8px;
+        margin-top: 1rem !important;
+    }
+
+    .tracker-option label.checkbox-label {
+        font-size: 0.9rem;
+    }
+
+    #tracker-language-selection {
+        margin-left: 0 !important;
+        margin-top: 1rem !important;
+        display: flex !important;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    #tracker-language-selection select {
+        width: 100% !important;
+        height: 44px !important;
+    }
+
+    #tracker-last-seen-preview {
+        margin-left: 0 !important;
+        padding: 0.5rem;
+        background: rgba(0,0,0,0.1);
+        border-radius: 4px;
     }
 }
 
@@ -2971,14 +3354,16 @@ body[data-theme="dark"] .episode-progress-text {
 .home-anime-cover {
     position: relative;
     width: 100%;
-    height: 180px;
+    height: auto;
     overflow: hidden;
+    background: var(--bg-tertiary);
 }
 
 .home-anime-cover img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    display: block;
     transition: transform 0.3s ease;
 }
 
@@ -3033,13 +3418,13 @@ body[data-theme="dark"] .episode-progress-text {
         gap: 0.8rem;
     }
 
-    .home-anime-cover {
-        height: 150px;
-    }
-
-    .anime-section h3 {
-        font-size: 1.3rem;
-    }
+.home-anime-cover {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 220 / 330;
+    overflow: hidden;
+    background: var(--bg-tertiary);
+}
 }
 
 @media (max-width: 480px) {
@@ -3050,13 +3435,30 @@ body[data-theme="dark"] .episode-progress-text {
     }
 
     .home-anime-cover {
-        height: 140px;
+        height: auto;
+        aspect-ratio: 220 / 330;
     }
 
     .home-anime-title {
         font-size: 0.7rem;
         height: 2.5rem;
         padding: 0.4rem 0.3rem;
+    }
+
+    .episode-label {
+        font-size: 0.85rem;
+    }
+
+    .ep-name {
+        font-size: 0.85rem;
+    }
+
+    .ep-stats {
+        font-size: 0.7rem;
+    }
+
+    .nav-brand img {
+        height: 32px !important;
     }
 }
 

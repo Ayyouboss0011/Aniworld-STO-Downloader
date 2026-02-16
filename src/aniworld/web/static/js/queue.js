@@ -132,11 +132,11 @@ export const Queue = {
             if (isNew || statusChanged) {
                 qItem.innerHTML = `
                     <div class="queue-item-header">
-                        <div class="queue-item-title-wrapper" style="flex: 1; cursor: pointer;">
+                        <div class="queue-item-title-wrapper" style="cursor: pointer; display: flex; align-items: center; gap: 8px;">
                             <i class="fas fa-chevron-right toggle-icon"></i>
                             <span class="queue-item-title">${escapeHtml(item.anime_title)}</span>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="queue-actions-wrapper" style="display: flex; align-items: center; gap: 10px;">
                             <div class="queue-item-status ${item.status}">${item.status}</div>
                             ${!isCompleted && isMovie ? `<button class="change-server-btn" data-id="${item.id}" title="Switch to next download server"><i class="fas fa-exchange-alt"></i> Switch Server</button>` : ''}
                             ${!isCompleted ? `<button class="stop-download-btn" data-id="${item.id}" title="Stop Download"><i class="fas fa-stop"></i></button>` : ''}

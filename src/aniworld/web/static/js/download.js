@@ -25,11 +25,11 @@ export const Download = {
         animeTitle: document.getElementById('download-anime-title'),
         episodeTree: document.getElementById('episode-tree'),
         episodeTreeLoading: document.getElementById('episode-tree-loading'),
-        selectedCount: document.getElementById('selected-episode-count'),
         confirmBtn: document.getElementById('confirm-download'),
         trackCheckbox: document.getElementById('track-series-checkbox'),
         trackerLanguageSelection: document.getElementById('tracker-language-selection'),
         trackerLanguage: document.getElementById('tracker-language'),
+        trackerLanguageDropdown: document.getElementById('tracker-language-dropdown'),
         trackerLastSeenPreview: document.getElementById('tracker-last-seen-preview'),
         lastSeenStatus: document.getElementById('last-seen-status'),
         downloadPath: document.getElementById('download-path')
@@ -37,6 +37,53 @@ export const Download = {
 
     async init() {
         await this.loadLanguagePreferences();
+        this.initCustomDropdowns();
+    },
+
+    initCustomDropdowns() {
+        if (!this.elements.trackerLanguageDropdown) return;
+
+        const dropdown = this.elements.trackerLanguageDropdown;
+        const selected = dropdown.querySelector('.select-selected');
+        const items = dropdown.querySelector('.select-items');
+        const hiddenInput = this.elements.trackerLanguage;
+
+        selected.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.closeAllCustomDropdowns(dropdown);
+            items.classList.toggle('select-hide');
+            dropdown.classList.toggle('select-arrow-active');
+        });
+
+        items.querySelectorAll('div').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const val = item.getAttribute('data-value');
+                selected.textContent = val;
+                hiddenInput.value = val;
+                
+                // Trigger change event manually on the hidden input if needed
+                hiddenInput.dispatchEvent(new Event('change'));
+                
+                items.classList.add('select-hide');
+                dropdown.classList.remove('select-arrow-active');
+                
+                items.querySelectorAll('div').forEach(d => d.classList.remove('same-as-selected'));
+                item.classList.add('same-as-selected');
+            });
+        });
+
+        document.addEventListener('click', () => {
+            this.closeAllCustomDropdowns();
+        });
+    },
+
+    closeAllCustomDropdowns(exceptDropdown = null) {
+        document.querySelectorAll('.custom-select').forEach(dropdown => {
+            if (dropdown !== exceptDropdown) {
+                dropdown.classList.remove('select-arrow-active');
+                dropdown.querySelector('.select-items').classList.add('select-hide');
+            }
+        });
     },
 
     async loadLanguagePreferences() {
@@ -315,7 +362,19 @@ export const Download = {
                     if (this.elements.trackCheckbox.checked && this.elements.trackerLanguage) {
                         const sitePrefs = this.state.currentDownloadData.site === 's.to' ? this.state.languagePreferences.sto : this.state.languagePreferences.aniworld;
                         if (sitePrefs && sitePrefs.length > 0) {
-                            this.elements.trackerLanguage.value = sitePrefs[0];
+                            const defaultLang = sitePrefs[0];
+                            this.elements.trackerLanguage.value = defaultLang;
+                            
+                            // Update custom dropdown UI
+                            if (this.elements.trackerLanguageDropdown) {
+                                const selected = this.elements.trackerLanguageDropdown.querySelector('.select-selected');
+                                if (selected) selected.textContent = defaultLang;
+                                
+                                const items = this.elements.trackerLanguageDropdown.querySelectorAll('.select-items div');
+                                items.forEach(item => {
+                                    item.classList.toggle('same-as-selected', item.getAttribute('data-value') === defaultLang);
+                                });
+                            }
                         }
                     }
                 }
@@ -379,8 +438,9 @@ export const Download = {
             const season = this.state.availableEpisodes[seasonNum];
             const seasonContainer = document.createElement('div');
             
-            // On AniWorld, "filme" might be season 0 or similar. Let's ensure we collapse anything but index 0
-            seasonContainer.className = 'season-container' + (index > 0 ? ' collapsed' : '');
+            // Collapse all seasons by default, unless there is only one
+            const isCollapsed = seasons.length > 1;
+            seasonContainer.className = 'season-container' + (isCollapsed ? ' collapsed' : '');
             seasonContainer.dataset.seasonContainer = seasonNum;
             seasonContainer.innerHTML = `
                 <div class="season-header" data-season="${seasonNum}">
@@ -516,10 +576,15 @@ export const Download = {
     updateSelectedCount() {
         const count = this.state.selectedEpisodes.size;
         const isTrackerEnabled = this.elements.trackCheckbox?.checked;
-        if (this.elements.selectedCount) this.elements.selectedCount.textContent = `${count} items selected`;
+        
         if (this.elements.confirmBtn) {
             this.elements.confirmBtn.disabled = (count === 0 && !isTrackerEnabled);
-            this.elements.confirmBtn.textContent = count > 0 ? 'Start Download' : (isTrackerEnabled ? 'Add Tracker' : 'Start Download');
+            
+            if (isTrackerEnabled && count === 0) {
+                this.elements.confirmBtn.textContent = 'Add Tracker';
+            } else {
+                this.elements.confirmBtn.textContent = count > 0 ? `Start Download (${count})` : 'Start Download';
+            }
         }
     },
 

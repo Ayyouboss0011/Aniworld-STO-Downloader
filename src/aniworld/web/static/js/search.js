@@ -136,9 +136,6 @@ export const Search = {
                     <br>
                     ${isMovie ? `<strong>Type:</strong> Movie<br>` : `<strong>Slug:</strong> ${escapeHtml(anime.slug || 'Unknown')}<br>`}
                 </div>
-                <div class="anime-description">
-                    ${escapeHtml(anime.description || 'No description available.')}
-                </div>
                 <div class="anime-actions">
                     <button class="download-btn">
                         <span class="btn-text">Download</span>
