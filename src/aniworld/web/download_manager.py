@@ -182,17 +182,27 @@ class DownloadQueueManager:
                             debug(f"Verifying S{s_num}E{e_num} via episode page...")
                             temp_ep = Episode(link=ep_url); temp_ep.auto_fill_details()
                             verified_langs = temp_ep.language_name
+                            
+                            debug(f"S{s_num}E{e_num}: Verified languages: {verified_langs}")
                             for l in verified_langs:
                                 l_norm, t_norm = l.lower(), target_language.lower()
-                                if l == target_language: is_available = True; break
-                                if "german dub" in t_norm or "de dub" in t_norm:
-                                    if "de dub" in l_norm or "german dub" in l_norm or "synchronisation" in l_norm: is_available = True; break
+                                if l == target_language or l_norm == t_norm: is_available = True; break
+                                if "german dub" in t_norm or "de dub" in t_norm or "deutsch" in t_norm:
+                                    if "de dub" in l_norm or "german dub" in l_norm or "synchronisation" in l_norm or l_norm == "deutsch" or l_norm == "de": is_available = True; break
                                 elif "german sub" in t_norm or "de sub" in t_norm:
                                     if "de sub" in l_norm or "german sub" in l_norm or "untertitel" in l_norm: is_available = True; break
                                 elif "english sub" in t_norm or "en sub" in t_norm:
-                                    if "en sub" in l_norm or "english sub" in l_norm: is_available = True; break
+                                    if "en sub" in l_norm or "english sub" in l_norm or l_norm == "englisch" or l_norm == "en": is_available = True; break
                                 elif "english dub" in t_norm or "en dub" in t_norm:
-                                    if "en dub" in l_norm or "english dub" in l_norm: is_available = True; break
+                                    if "en dub" in l_norm or "english dub" in l_norm or l_norm == "englisch" or l_norm == "en": is_available = True; break
+                            
+                            if is_available:
+                                # Also verify provider availability
+                                verified_providers = [p.lower() for p in temp_ep.provider_name]
+                                debug(f"S{s_num}E{e_num}: Verified providers: {verified_providers}")
+                                if tracker["provider"].lower() not in verified_providers and "auto" not in tracker["provider"].lower():
+                                    debug(f"S{s_num}E{e_num}: Required provider {tracker['provider']} not found in {verified_providers}")
+                                    is_available = False
                         except Exception as e:
                             debug(f"S{s_num}E{e_num}: Failed to verify: {e}", is_error=True)
                     if not is_available: continue

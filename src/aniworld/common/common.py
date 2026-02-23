@@ -530,10 +530,12 @@ def _parse_season_episodes_details(soup: BeautifulSoup, season: int) -> List[Dic
                             languages.append(1) # German Dub
                         elif "svg-flag-english" in svg_class:
                             languages.append(2) # English Dub/Sub
-                        elif "svg-flag-japanese-german" in svg_class:
-                            languages.append(3) # German Sub (Japanese voice + German sub)
-                        elif "svg-flag-japanese" in svg_class:
-                            languages.append(3) # Japanese (Sub)
+                        elif "svg-flag-japanese-german" in svg_class or "svg-flag-japanese" in svg_class or "svg-flag-sub" in svg_class:
+                            languages.append(3) # Sub (various types)
+                        # Fallback for plain flags
+                        elif "german" in svg_class: languages.append(1)
+                        elif "english" in svg_class: languages.append(2)
+                        elif "japanese" in svg_class or "sub" in svg_class: languages.append(3)
 
                 # Extract providers from icons
                 providers = []

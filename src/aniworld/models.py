@@ -861,14 +861,17 @@ class Episode:
                     redirect_path = button.get("data-play-url")
                     lang_key_str = button.get("data-language-id")
                     
-                    provider_name = None
-                    # Try different span classes or text content
-                    provider_name_span = button.find("span", class_="ms-1") or button.find("span", class_="provider-name")
-                    if provider_name_span:
-                        provider_name = provider_name_span.get_text(strip=True)
-                    else:
-                        # Fallback to direct button text
-                        provider_name = button.get_text(strip=True)
+                    # Try data-provider-name first as it's the most reliable
+                    provider_name = button.get("data-provider-name")
+                    
+                    if not provider_name:
+                        # Try different span classes or text content
+                        provider_name_span = button.find("span", class_="ms-1") or button.find("span", class_="provider-name")
+                        if provider_name_span:
+                            provider_name = provider_name_span.get_text(strip=True)
+                        else:
+                            # Fallback to direct button text
+                            provider_name = button.get_text(strip=True)
                     
                     if provider_name:
                         provider_name = self._normalize_provider_name(provider_name)
