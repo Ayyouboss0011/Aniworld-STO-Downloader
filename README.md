@@ -156,6 +156,6 @@ Dieses Projekt basiert auf der Arbeit von [AniWorld-Downloader](https://github.c
 
 **Disclaimer**: Dieses Tool ist ein Scraper für öffentlich zugängliche Inhalte. Es werden keine Dateien gehostet. Die Nutzer sind für die Einhaltung lokaler Urheberrechtsgesetze selbst verantwortlich.
 
-Lizenziert unter der **MIT License**.
+Lizenziert unter der **MIT License**..
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
