@@ -139,14 +139,16 @@ class DownloadQueueManager:
                 slug = series_url.split("/anime/stream/")[-1].rstrip("/")
                 base_url = config.ANIWORLD_TO
                 stream_path = "anime/stream"
-            elif "/serie/stream/" in series_url:
-                slug = series_url.split("/serie/stream/")[-1].rstrip("/")
+            elif config.S_TO in series_url:
+                # Clean up S.to URL to get a pure slug
+                # e.g. https://s.to/serie/stream/serie/a-knight-of-the-seven-kingdoms -> a-knight-of-the-seven-kingdoms
+                temp_slug = series_url.replace(config.S_TO, "").strip("/")
+                # Split and filter out "serie" and "stream" keywords
+                parts = [p for p in temp_slug.split("/") if p not in ["serie", "stream"]]
+                if not parts: return
+                slug = parts[0]
                 base_url = config.S_TO
-                stream_path = "serie"
-            elif config.S_TO in series_url and "/serie/" in series_url:
-                slug = series_url.split("/serie/")[-1].rstrip("/")
-                base_url = config.S_TO
-                stream_path = "serie"
+                stream_path = "serie/stream"
             else:
                 return
 
@@ -178,7 +180,8 @@ class DownloadQueueManager:
                     if not is_available:
                         try:
                             from ..models import Episode
-                            ep_url = f"{base_url}/serie/{slug}/staffel-{s_num}/episode-{e_num}" if base_url == config.S_TO else f"{base_url}/{stream_path}/{slug}/staffel-{s_num}/episode-{e_num}"
+                            ep_url = f"{base_url}/{stream_path}/{slug}/staffel-{s_num}/episode-{e_num}"
+                                
                             debug(f"Verifying S{s_num}E{e_num} via episode page...")
                             temp_ep = Episode(link=ep_url); temp_ep.auto_fill_details()
                             verified_langs = temp_ep.language_name
@@ -207,7 +210,7 @@ class DownloadQueueManager:
                             debug(f"S{s_num}E{e_num}: Failed to verify: {e}", is_error=True)
                     if not is_available: continue
                     debug(f"FOUND NEW EPISODE: S{s_num} E{e_num}")
-                    ep_url = f"{base_url}/serie/{slug}/staffel-{s_num}/episode-{e_num}" if base_url == config.S_TO else f"{base_url}/{stream_path}/{slug}/staffel-{s_num}/episode-{e_num}"
+                    ep_url = f"{base_url}/{stream_path}/{slug}/staffel-{s_num}/episode-{e_num}"
                     new_episodes.append(ep_url)
                     if s_num > updated_s or (s_num == updated_s and e_num > updated_e):
                         updated_s, updated_e = s_num, e_num
