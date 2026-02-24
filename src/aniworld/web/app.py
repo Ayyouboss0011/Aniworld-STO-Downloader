@@ -976,6 +976,37 @@ class WebApp:
                 logging.error(f"Failed to skip candidate for job {queue_id}: {e}")
                 return jsonify({"success": False, "error": str(e)}), 500
 
+        @self.app.route("/api/settings/downloads", methods=["GET", "POST"])
+        @self._require_api_auth
+        def api_download_settings():
+            """Get or set download settings (max concurrent series/episodes)."""
+            try:
+                if request.method == "POST":
+                    data = request.get_json()
+                    max_series = data.get("max_concurrent_series")
+                    max_episodes = data.get("max_concurrent_episodes")
+                    
+                    if max_series is None or max_episodes is None:
+                        # Fallback for old frontend if only max_concurrent_downloads is sent
+                        max_series = max_series or data.get("max_concurrent_downloads")
+                        max_episodes = max_episodes or 1
+                        
+                    if max_series is None:
+                        return jsonify({"success": False, "error": "max_concurrent_series is required"}), 400
+                        
+                    self.download_manager.set_download_limits(int(max_series), int(max_episodes))
+                    return jsonify({"success": True, "message": "Download settings updated"})
+                
+                # GET request
+                return jsonify({
+                    "success": True,
+                    "max_concurrent_series": self.download_manager.max_concurrent_series,
+                    "max_concurrent_episodes": self.download_manager.max_concurrent_episodes
+                })
+            except Exception as err:
+                logging.error(f"Failed to get/set download settings: {err}")
+                return jsonify({"success": False, "error": str(err)}), 500
+
         @self.app.route("/api/download-path", methods=["GET", "POST"])
         @self._require_api_auth
         def api_download_path():

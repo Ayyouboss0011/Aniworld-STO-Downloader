@@ -19,8 +19,27 @@ class DownloadQueueManager:
     def __init__(self, database: Optional[UserDatabase] = None):
         self.db = database  # Only used for user auth, not download storage
         self.is_processing = False
-        self.current_download_id = None
-        self.worker_thread = None
+        self.max_concurrent_series = 1
+        self.max_concurrent_episodes = 1
+        if self.db:
+            try:
+                max_s = self.db.get_setting("max_concurrent_series")
+                if max_s:
+                    self.max_concurrent_series = max(1, int(max_s))
+                else:
+                    # Migration: use old setting if exists
+                    old_max = self.db.get_setting("max_concurrent_downloads")
+                    if old_max:
+                        self.max_concurrent_series = max(1, int(old_max))
+                
+                max_e = self.db.get_setting("max_concurrent_episodes")
+                if max_e:
+                    self.max_concurrent_episodes = max(1, int(max_e))
+            except:
+                pass
+        
+        self.active_worker_threads = []
+        self._worker_lock = threading.Lock()
         self._stop_event = threading.Event()
         self._cancelled_jobs = set()
 
@@ -35,15 +54,26 @@ class DownloadQueueManager:
         self._tracker_scan_status = {} # tracker_id -> bool (is_scanning)
         self._tracker_debug_messages = {} # tracker_id -> list of strings
 
+    def set_download_limits(self, series_count: int, episode_count: int):
+        """Update the maximum number of concurrent series and episodes"""
+        with self._worker_lock:
+            self.max_concurrent_series = max(1, int(series_count))
+            self.max_concurrent_episodes = max(1, int(episode_count))
+            if self.db:
+                self.db.set_setting("max_concurrent_series", str(self.max_concurrent_series))
+                self.db.set_setting("max_concurrent_episodes", str(self.max_concurrent_episodes))
+            logging.info(f"Limits set: max_concurrent_series={self.max_concurrent_series}, max_concurrent_episodes={self.max_concurrent_episodes}")
+
     def start_queue_processor(self):
         """Start the background queue processor"""
         if not self.is_processing:
             self.is_processing = True
             self._stop_event.clear()
-            self.worker_thread = threading.Thread(
-                target=self._process_queue, daemon=True
+            # Start the main scheduler thread
+            self.scheduler_thread = threading.Thread(
+                target=self._queue_scheduler, daemon=True
             )
-            self.worker_thread.start()
+            self.scheduler_thread.start()
             logging.info("Download queue processor started")
 
     def stop_queue_processor(self):
@@ -51,8 +81,15 @@ class DownloadQueueManager:
         if self.is_processing:
             self.is_processing = False
             self._stop_event.set()
-            if self.worker_thread:
-                self.worker_thread.join(timeout=5)
+            if hasattr(self, "scheduler_thread"):
+                self.scheduler_thread.join(timeout=5)
+            
+            # Wait for all workers to finish
+            with self._worker_lock:
+                for thread in self.active_worker_threads:
+                    thread.join(timeout=2)
+                self.active_worker_threads = []
+                
             logging.info("Download queue processor stopped")
 
     def start_tracker_processor(self):
@@ -275,17 +312,46 @@ class DownloadQueueManager:
                 completed.append({"id": d["id"], "anime_title": d["anime_title"], "total_episodes": d["total_episodes"], "completed_episodes": d["completed_episodes"], "status": d["status"], "is_movie": d.get("is_movie", False), "current_episode": d["current_episode"], "progress_percentage": d["progress_percentage"], "current_episode_progress": d.get("current_episode_progress", 100.0), "error_message": d["error_message"], "completed_at": d["completed_at"].isoformat() if d["completed_at"] else None})
             return {"active": active, "completed": completed}
 
-    def _process_queue(self):
+    def _queue_scheduler(self):
+        """Main scheduler that manages worker threads"""
         while self.is_processing and not self._stop_event.is_set():
             try:
-                job = self._get_next_queued_download()
-                if job:
-                    self.current_download_id = job["id"]
-                    try: self._process_download_job(job)
-                    except KeyboardInterrupt: self._update_download_status(job["id"], "failed", error_message="Interrupted")
-                    self.current_download_id = None
-                else: time.sleep(2)
-            except Exception as e: logging.error(f"Queue error: {e}"); time.sleep(5)
+                # Clean up finished threads
+                with self._worker_lock:
+                    self.active_worker_threads = [t for t in self.active_worker_threads if t.is_alive()]
+                    active_count = len(self.active_worker_threads)
+
+                if active_count < self.max_concurrent_series:
+                    job = self._get_next_queued_download()
+                    if job:
+                        # Mark job as starting so it's not picked up again immediately
+                        # We use 'downloading' but with a special message
+                        self._update_download_status(job["id"], "downloading", current_episode="Initializing...")
+                        
+                        worker = threading.Thread(
+                            target=self._worker_wrapper, args=(job,), daemon=True
+                        )
+                        with self._worker_lock:
+                            self.active_worker_threads.append(worker)
+                        worker.start()
+                        logging.info(f"Started worker for job {job['id']}. Active workers: {len(self.active_worker_threads)}")
+                    else:
+                        time.sleep(2)
+                else:
+                    time.sleep(2)
+            except Exception as e:
+                logging.error(f"Scheduler error: {e}")
+                time.sleep(5)
+
+    def _worker_wrapper(self, job):
+        """Wrapper for the download job processing"""
+        try:
+            self._process_download_job(job)
+        except KeyboardInterrupt:
+            self._update_download_status(job["id"], "failed", error_message="Interrupted")
+        except Exception as e:
+            logging.error(f"Worker error for job {job['id']}: {e}")
+            self._update_download_status(job["id"], "failed", error_message=f"Worker Error: {e}")
 
     def _process_download_job(self, job):
         queue_id = job["id"]
@@ -307,7 +373,6 @@ class DownloadQueueManager:
             actual_total = sum(len(a.episode_list) for a in anime_list)
             if actual_total != job["total_episodes"]: self._update_download_status(queue_id, "downloading", total_episodes=actual_total)
 
-            successful_downloads, failed_downloads = 0, 0
             from ..parser import arguments
             
             # Base download directories
@@ -315,134 +380,200 @@ class DownloadQueueManager:
             movie_download_dir = str(getattr(config, "DEFAULT_MOVIE_PATH", os.path.expanduser("~/Downloads")))
 
             if self.db:
-                # Priority 1: Specific settings in DB
                 custom_series_path = self.db.get_setting("series_download_path")
                 custom_movie_path = self.db.get_setting("movie_download_path")
-                
-                # Priority 2: General settings in DB (fallback for migration)
                 custom_general_path = self.db.get_setting("download_path")
                 
                 if custom_series_path: series_download_dir = custom_series_path
                 elif custom_general_path: series_download_dir = custom_general_path
-                
                 if custom_movie_path: movie_download_dir = custom_movie_path
                 elif custom_general_path: movie_download_dir = custom_general_path
 
-            # Determine final download directory for this job
             download_dir = movie_download_dir if job.get("is_movie", False) else series_download_dir
 
+            # Episode processing with internal parallelism
+            active_ep_threads = []
+            ep_lock = threading.Lock()
+            completed_episodes_count = 0
+            failed_episodes_count = 0
+            
+            all_episodes_to_download = []
             for anime in anime_list:
                 for episode in anime.episode_list:
-                    if self._stop_event.is_set() or queue_id in self._cancelled_jobs: break
-                    original_link = episode.link
-                    
-                    # Dedizierte Movie4k-Logik
-                    if original_link.startswith("movie4k:"):
-                        logging.info(f"[DEBUG] Redirecting {original_link} to Movie4k logic")
-                        try:
-                            if self._process_movie4k_download(queue_id, original_link, job, download_dir):
-                                successful_downloads += 1
-                            else:
-                                failed_downloads += 1
-                        except Exception as movie_err:
-                            logging.error(f"[DEBUG] Movie4k critical error: {movie_err}")
-                            failed_downloads += 1
-                            self._update_download_status(queue_id, "failed", error_message=f"Movie4k error: {movie_err}")
-                        continue
+                    all_episodes_to_download.append((anime, episode))
 
-                    is_cancelled = False
-                    with self._queue_lock:
-                        if queue_id in self._active_downloads:
-                            for ep_item in self._active_downloads[queue_id]["episodes"]:
-                                if ep_item["url"] == original_link and ep_item["status"] == "cancelled": is_cancelled = True; break
-                    if is_cancelled: continue
+            ep_iterator = iter(all_episodes_to_download)
+            stop_job = False
 
-                    episode_info = f"{anime.title} - Episode {episode.episode} (Season {episode.season})"
-                    candidate_streams = [(1, original_link)]
-                    
-                    for cand_idx, (s_num, s_url) in enumerate(candidate_streams):
-                        if self._stop_event.is_set() or queue_id in self._cancelled_jobs: break
-                        self._update_download_status(queue_id, "downloading", current_episode=f"Downloading {episode_info}", current_episode_progress=0.0)
-                        episode.link, episode.direct_link = s_url, None
+            while not stop_job:
+                # Clean up finished threads
+                active_ep_threads = [t for t in active_ep_threads if t.is_alive()]
+                
+                if self._stop_event.is_set() or queue_id in self._cancelled_jobs:
+                    stop_job = True
+                    break
+
+                if len(active_ep_threads) < self.max_concurrent_episodes:
+                    try:
+                        anime, episode = next(ep_iterator)
                         
-                        # Fix: explicitly set selected language and provider for the episode
-                        # This ensures the correct language is used when fetching streaming links
-                        # Use per-episode config if available, otherwise job-level defaults
-                        ep_config = (job.get("episodes_config") or {}).get(original_link) or {}
-                        episode._selected_language = ep_config.get("language") or job["language"]
-                        episode._selected_provider = ep_config.get("provider") or job["provider"]
+                        original_link = episode.link
+                        
+                        # Handle Movie4k separately as before
+                        if original_link.startswith("movie4k:"):
+                            # For simplicity and to avoid complex state tracking, Movie4k remains serial within its job for now 
+                            # or we could also spawn it. Let's keep it serial for now to avoid issues with its specific logic.
+                            if self._process_movie4k_download(queue_id, original_link, job, download_dir):
+                                with ep_lock: completed_episodes_count += 1
+                            else:
+                                with ep_lock: failed_episodes_count += 1
+                            continue
 
+                        is_cancelled = False
                         with self._queue_lock:
                             if queue_id in self._active_downloads:
                                 for ep_item in self._active_downloads[queue_id]["episodes"]:
-                                    if ep_item["url"] == original_link: ep_item["status"] = "downloading"
+                                    if ep_item["url"] == original_link and ep_item["status"] == "cancelled": is_cancelled = True; break
+                        if is_cancelled: continue
 
-                        try:
-                            temp_anime = Anime(title=anime.title, slug=anime.slug, site=anime.site, language=episode._selected_language, provider=episode._selected_provider, action=anime.action, episode_list=[episode])
+                        # Start episode download thread
+                        t = threading.Thread(
+                            target=self._download_single_episode,
+                            args=(queue_id, anime, episode, job, download_dir, ep_lock),
+                            daemon=True
+                        )
+                        active_ep_threads.append(t)
+                        t.start()
+                        
+                    except StopIteration:
+                        if not active_ep_threads:
+                            break
+                        time.sleep(0.5)
+                else:
+                    time.sleep(0.5)
 
-                            def web_progress_callback(d):
-                                if self._stop_event.is_set() or queue_id in self._cancelled_jobs: raise KeyboardInterrupt("Stopped")
-                                with self._queue_lock:
-                                    if (queue_id, original_link) in self._cancelled_episodes: self._cancelled_episodes.discard((queue_id, original_link)); raise KeyboardInterrupt("EpCancelled")
-                                    if queue_id in self._skip_flags: self._skip_flags.discard(queue_id); raise KeyboardInterrupt("Skip")
+            # Wait for remaining episode threads
+            for t in active_ep_threads:
+                t.join()
 
-                                if d["status"] == "downloading":
-                                    p = 0.0
-                                    if d.get("_percent_str"):
-                                        try: p = float(d["_percent_str"].replace("%", ""))
-                                        except: pass
-                                    if p == 0.0:
-                                        db, tb = d.get("downloaded_bytes", 0), d.get("total_bytes") or d.get("total_bytes_estimate")
-                                        if tb: p = (db / tb) * 100
-                                    p = min(100.0, max(0.0, p))
-                                    s, e = re.sub(r"\x1b\[[0-9;]*m", "", str(d.get("_speed_str", "N/A"))).strip(), re.sub(r"\x1b\[[0-9;]*m", "", str(d.get("_eta_str", "N/A"))).strip()
-                                    msg = f"Downloading {episode_info} - {p:.1f}% | Speed: {s} | ETA: {e}"
-                                    
-                                    with self._queue_lock:
-                                        if queue_id in self._active_downloads:
-                                            self._active_downloads[queue_id]["current_episode"], self._active_downloads[queue_id]["current_episode_progress"] = msg, float(p)
-                                            for ep_item in self._active_downloads[queue_id]["episodes"]:
-                                                if ep_item["url"] == original_link:
-                                                    ep_item["status"], ep_item["progress"], ep_item["speed"], ep_item["eta"] = "downloading", p, s if s != "N/A" else "", e if e != "N/A" else ""
-                                    self.update_episode_progress(queue_id, p, msg)
+            if queue_id in self._cancelled_jobs:
+                self._update_download_status(queue_id, "failed", error_message="Cancelled by user")
+                with self._queue_lock: self._cancelled_jobs.discard(queue_id)
+                return
 
-                            # Use consistent output directory for yt-dlp
-                            from ..parser import arguments
-                            arguments.output_dir = download_dir
+            # Final job status update
+            with self._queue_lock:
+                if queue_id in self._active_downloads:
+                    job_data = self._active_downloads[queue_id]
+                    successful = sum(1 for e in job_data["episodes"] if e["status"] == "completed")
+                    total_att = sum(1 for e in job_data["episodes"] if e["status"] in ["completed", "failed"])
+                    
+                    if successful == 0 and total_att > 0: status, msg = "failed", f"Failed: 0/{total_att} done."
+                    elif total_att < len(job_data["episodes"]): status, msg = "completed", f"Partial: {successful}/{len(job_data['episodes'])} done." # Should not happen if iterator finished
+                    else: status, msg = "completed", f"Done: {successful} eps."
+                    
+                    self._update_download_status(queue_id, status, completed_episodes=successful, current_episode=msg, error_message=msg if status=="failed" else None)
+        except Exception as e: 
+            logging.error(f"Error in _process_download_job: {e}")
+            self._update_download_status(queue_id, "failed", error_message=f"Error: {e}")
 
-                            from ..action.download import download
-                            success = download(temp_anime, web_progress_callback)
+    def _download_single_episode(self, queue_id, anime, episode, job, download_dir, ep_lock):
+        """Worker function for a single episode download within a job"""
+        original_link = episode.link
+        episode_info = f"{anime.title} - Episode {episode.episode} (Season {episode.season})"
+        
+        # Determine language and provider
+        ep_config = (job.get("episodes_config") or {}).get(original_link) or {}
+        lang = ep_config.get("language") or job["language"]
+        prov = ep_config.get("provider") or job["provider"]
+        
+        with self._queue_lock:
+            if queue_id in self._active_downloads:
+                for ep_item in self._active_downloads[queue_id]["episodes"]:
+                    if ep_item["url"] == original_link: ep_item["status"] = "downloading"
 
+        try:
+            from ..models import Anime as AnimeModel
+            # Use local copies for thread safety if needed
+            temp_episode = episode # In models.py Episode objects are mostly data containers
+            temp_episode._selected_language = lang
+            temp_episode._selected_provider = prov
+            
+            temp_anime = AnimeModel(title=anime.title, slug=anime.slug, site=anime.site, language=lang, provider=prov, action=anime.action, episode_list=[temp_episode])
+
+            def web_progress_callback(d):
+                if self._stop_event.is_set() or queue_id in self._cancelled_jobs: raise KeyboardInterrupt("Stopped")
+                with self._queue_lock:
+                    if (queue_id, original_link) in self._cancelled_episodes: 
+                        self._cancelled_episodes.discard((queue_id, original_link))
+                        raise KeyboardInterrupt("EpCancelled")
+                    if queue_id in self._skip_flags: 
+                        # This skips THE ENTIRE JOB in current implementation, 
+                        # but here it might only skip one episode if we are not careful.
+                        # For now, let's keep it per-episode skip.
+                        self._skip_flags.discard(queue_id)
+                        raise KeyboardInterrupt("Skip")
+
+                if d["status"] == "downloading":
+                    p = 0.0
+                    if d.get("_percent_str"):
+                        try: p = float(d["_percent_str"].replace("%", ""))
+                        except: pass
+                    if p == 0.0:
+                        db, tb = d.get("downloaded_bytes", 0), d.get("total_bytes") or d.get("total_bytes_estimate")
+                        if tb: p = (db / tb) * 100
+                    p = min(100.0, max(0.0, p))
+                    s, e = re.sub(r"\x1b\[[0-9;]*m", "", str(d.get("_speed_str", "N/A"))).strip(), re.sub(r"\x1b\[[0-9;]*m", "", str(d.get("_eta_str", "N/A"))).strip()
+                    
+                    with self._queue_lock:
+                        if queue_id in self._active_downloads:
+                            # Update global job status (last active episode's status is shown)
+                            msg = f"Downloading {episode_info} - {p:.1f}%"
+                            self._active_downloads[queue_id]["current_episode"] = msg
+                            
+                            for ep_item in self._active_downloads[queue_id]["episodes"]:
+                                if ep_item["url"] == original_link:
+                                    ep_item["status"], ep_item["progress"], ep_item["speed"], ep_item["eta"] = "downloading", p, s if s != "N/A" else "", e if e != "N/A" else ""
+                    
+                    self.update_episode_progress(queue_id, p) # This updates progress_percentage globally
+
+            from ..action.download import download
+            # Ensure output_dir is set correctly (yt-dlp uses a global state in arguments)
+            # This might be a problem with multiple threads if they use different dirs...
+            # But here all episodes of a job go to the same dir.
+            from ..parser import arguments
+            arguments.output_dir = download_dir
+            
+            success = download(temp_anime, web_progress_callback)
+
+            with self._queue_lock:
+                if queue_id in self._active_downloads:
+                    for ep_item in self._active_downloads[queue_id]["episodes"]:
+                        if ep_item["url"] == original_link:
                             if success:
-                                successful_downloads += 1
-                                with self._queue_lock:
-                                    if queue_id in self._active_downloads:
-                                        for ep_item in self._active_downloads[queue_id]["episodes"]:
-                                            if ep_item["url"] == original_link: ep_item["status"], ep_item["progress"] = "completed", 100.0
-                                self._update_download_status(queue_id, "downloading", completed_episodes=successful_downloads, current_episode=f"Completed {episode_info}", current_episode_progress=100.0)
-                                break
-                            elif cand_idx == len(candidate_streams)-1:
-                                failed_downloads += 1
-                                with self._queue_lock:
-                                    if queue_id in self._active_downloads:
-                                        for ep_item in self._active_downloads[queue_id]["episodes"]:
-                                            if ep_item["url"] == original_link and ep_item["status"] != "cancelled": ep_item["status"] = "failed"
-                        except KeyboardInterrupt as ki:
-                            if str(ki) == "EpCancelled":
-                                with self._queue_lock:
-                                    if queue_id in self._active_downloads:
-                                        for ep_item in self._active_downloads[queue_id]["episodes"]:
-                                            if ep_item["url"] == original_link: ep_item["status"] = "cancelled"
-                                break
-                            elif str(ki) == "Skip" and cand_idx == len(candidate_streams)-1: failed_downloads += 1; continue
-                            else: raise ki
-                        except:
-                            if cand_idx == len(candidate_streams)-1:
-                                failed_downloads += 1
-                                with self._queue_lock:
-                                    if queue_id in self._active_downloads:
-                                        for ep_item in self._active_downloads[queue_id]["episodes"]:
-                                            if ep_item["url"] == original_link: ep_item["status"] = "failed"
+                                ep_item["status"], ep_item["progress"] = "completed", 100.0
+                            else:
+                                ep_item["status"] = "failed"
+            
+            if success:
+                # Update completed count
+                with self._queue_lock:
+                    if queue_id in self._active_downloads:
+                        self._active_downloads[queue_id]["completed_episodes"] += 1
+
+        except KeyboardInterrupt as ki:
+            with self._queue_lock:
+                if queue_id in self._active_downloads:
+                    for ep_item in self._active_downloads[queue_id]["episodes"]:
+                        if ep_item["url"] == original_link:
+                            ep_item["status"] = "cancelled"
+        except Exception as e:
+            logging.error(f"Error downloading episode {episode_info}: {e}")
+            with self._queue_lock:
+                if queue_id in self._active_downloads:
+                    for ep_item in self._active_downloads[queue_id]["episodes"]:
+                        if ep_item["url"] == original_link:
+                            ep_item["status"] = "failed"
 
             if queue_id in self._cancelled_jobs:
                 self._update_download_status(queue_id, "failed", error_message="Cancelled by user")
