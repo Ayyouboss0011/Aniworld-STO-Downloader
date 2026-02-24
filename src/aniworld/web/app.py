@@ -1073,6 +1073,44 @@ class WebApp:
                 logging.error(f"Failed to get/set language preferences: {err}")
                 return jsonify({"success": False, "error": str(err)}), 500
 
+        @self.app.route("/api/settings/provider-preferences", methods=["GET", "POST"])
+        @self._require_api_auth
+        def api_provider_preferences():
+            """Get or set provider preferences endpoint."""
+            try:
+                import json
+                if request.method == "POST":
+                    data = request.get_json()
+                    aniworld_prefs = data.get("aniworld", [])
+                    sto_prefs = data.get("sto", [])
+                    
+                    if self.db:
+                        self.db.set_setting("prov_pref_aniworld", json.dumps(aniworld_prefs))
+                        self.db.set_setting("prov_pref_sto", json.dumps(sto_prefs))
+                        return jsonify({"success": True, "message": "Provider preferences updated"})
+                    else:
+                        return jsonify({"success": False, "error": "Database not available"}), 500
+                
+                # GET request
+                aniworld_prefs = []
+                sto_prefs = []
+                if self.db:
+                    aniworld_raw = self.db.get_setting("prov_pref_aniworld")
+                    sto_raw = self.db.get_setting("prov_pref_sto")
+                    if aniworld_raw:
+                        aniworld_prefs = json.loads(aniworld_raw)
+                    if sto_raw:
+                        sto_prefs = json.loads(sto_raw)
+                
+                return jsonify({
+                    "success": True, 
+                    "aniworld": aniworld_prefs, 
+                    "sto": sto_prefs
+                })
+            except Exception as err:
+                logging.error(f"Failed to get/set language preferences: {err}")
+                return jsonify({"success": False, "error": str(err)}), 500
+
         @self.app.route("/api/episodes", methods=["POST"])
         @self._require_api_auth
         def api_episodes():

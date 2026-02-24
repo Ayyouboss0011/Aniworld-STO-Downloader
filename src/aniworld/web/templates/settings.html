@@ -79,6 +79,9 @@
                 <button class="settings-nav-item" data-section="languages">
                     <i class="fas fa-language"></i> Languages
                 </button>
+                <button class="settings-nav-item" data-section="providers">
+                    <i class="fas fa-server"></i> Providers
+                </button>
                 {% if auth_enabled and user.is_admin %}
                 <button class="settings-nav-item" data-section="users">
                     <i class="fas fa-users"></i> User Management
@@ -230,6 +233,96 @@
                     </form>
                 </section>
 
+                <!-- Provider Preferences Section -->
+                <section id="providers" class="settings-section">
+                    <h2><i class="fas fa-server"></i> Provider Preferences</h2>
+                    <p class="text-muted" style="margin-bottom: 2rem;">Definiere hier deine bevorzugten Provider in der gewünschten Reihenfolge. Diese werden automatisch vorselektiert.</p>
+                    
+                    <form id="providerPreferencesForm">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+                            <!-- AniWorld Preferences -->
+                            <div class="site-prefs" style="padding: 1.5rem; background: var(--bg-secondary); border-radius: 12px;">
+                                <h3 style="margin-bottom: 1.5rem; color: var(--text-primary);"><i class="fas fa-tv" style="margin-right: 10px; color: #667eea;"></i> AniWorld.to</h3>
+                                <div class="pref-group" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                                    <div class="form-group">
+                                        <label>1. Priorität</label>
+                                        <select class="prov-pref-select aniworld-prov-pref" data-index="0" style="padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary);">
+                                            <option value="">- Keine -</option>
+                                            <option value="VOE">VOE</option>
+                                            <option value="Vidoza">Vidoza</option>
+                                            <option value="Streamtape">Streamtape</option>
+                                            <option value="Filemoon">Filemoon</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>2. Priorität</label>
+                                        <select class="prov-pref-select aniworld-prov-pref" data-index="1" style="padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary);">
+                                            <option value="">- Keine -</option>
+                                            <option value="VOE">VOE</option>
+                                            <option value="Vidoza">Vidoza</option>
+                                            <option value="Streamtape">Streamtape</option>
+                                            <option value="Filemoon">Filemoon</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>3. Priorität</label>
+                                        <select class="prov-pref-select aniworld-prov-pref" data-index="2" style="padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary);">
+                                            <option value="">- Keine -</option>
+                                            <option value="VOE">VOE</option>
+                                            <option value="Vidoza">Vidoza</option>
+                                            <option value="Streamtape">Streamtape</option>
+                                            <option value="Filemoon">Filemoon</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- S.to Preferences -->
+                            <div class="site-prefs" style="padding: 1.5rem; background: var(--bg-secondary); border-radius: 12px;">
+                                <h3 style="margin-bottom: 1.5rem; color: var(--text-primary);"><i class="fas fa-film" style="margin-right: 10px; color: #764ba2;"></i> S.to</h3>
+                                <div class="pref-group" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                                    <div class="form-group">
+                                        <label>1. Priorität</label>
+                                        <select class="prov-pref-select sto-prov-pref" data-index="0" style="padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary);">
+                                            <option value="">- Keine -</option>
+                                            <option value="VOE">VOE</option>
+                                            <option value="Vidoza">Vidoza</option>
+                                            <option value="Streamtape">Streamtape</option>
+                                            <option value="Filemoon">Filemoon</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>2. Priorität</label>
+                                        <select class="prov-pref-select sto-prov-pref" data-index="1" style="padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary);">
+                                            <option value="">- Keine -</option>
+                                            <option value="VOE">VOE</option>
+                                            <option value="Vidoza">Vidoza</option>
+                                            <option value="Streamtape">Streamtape</option>
+                                            <option value="Filemoon">Filemoon</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>3. Priorität</label>
+                                        <select class="prov-pref-select sto-prov-pref" data-index="2" style="padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary);">
+                                            <option value="">- Keine -</option>
+                                            <option value="VOE">VOE</option>
+                                            <option value="Vidoza">Vidoza</option>
+                                            <option value="Streamtape">Streamtape</option>
+                                            <option value="Filemoon">Filemoon</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group button-group" style="margin-top: 2rem; display: flex; justify-content: flex-end;">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Preferences
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
                 <!-- Admin User Management Section -->
                 {% if auth_enabled and user.is_admin %}
                 <section id="users" class="settings-section">
@@ -354,6 +447,7 @@
             // Load settings
             loadSettings();
             loadLanguagePreferences();
+            loadProviderPreferences();
 
             // User dropdown functionality
             const userDropdownBtn = document.getElementById('user-dropdown-btn');
@@ -445,6 +539,29 @@
                 }
             }
 
+            async function loadProviderPreferences() {
+                try {
+                    const response = await fetch('/api/settings/provider-preferences');
+                    const data = await response.json();
+                    if (data.success) {
+                        if (data.aniworld) {
+                            const aniSelects = document.querySelectorAll('.aniworld-prov-pref');
+                            data.aniworld.forEach((val, i) => {
+                                if (aniSelects[i]) aniSelects[i].value = val;
+                            });
+                        }
+                        if (data.sto) {
+                            const stoSelects = document.querySelectorAll('.sto-prov-pref');
+                            data.sto.forEach((val, i) => {
+                                if (stoSelects[i]) stoSelects[i].value = val;
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to load provider preferences:', error);
+                }
+            }
+
             // Language preferences form
             const languagePreferencesForm = document.getElementById('languagePreferencesForm');
             if (languagePreferencesForm) {
@@ -454,6 +571,31 @@
                     const sto = Array.from(document.querySelectorAll('.sto-pref')).map(s => s.value).filter(v => v !== "");
                     try {
                         const response = await fetch('/api/settings/language-preferences', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ aniworld, sto })
+                        });
+                        const data = await response.json();
+                        if (data.success) {
+                            showMessage(data.message, 'success');
+                        } else {
+                            showMessage(data.error, 'error');
+                        }
+                    } catch (error) {
+                        showMessage('Failed to save preferences: ' + error.message, 'error');
+                    }
+                });
+            }
+
+            // Provider preferences form
+            const providerPreferencesForm = document.getElementById('providerPreferencesForm');
+            if (providerPreferencesForm) {
+                providerPreferencesForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const aniworld = Array.from(document.querySelectorAll('.aniworld-prov-pref')).map(s => s.value).filter(v => v !== "");
+                    const sto = Array.from(document.querySelectorAll('.sto-prov-pref')).map(s => s.value).filter(v => v !== "");
+                    try {
+                        const response = await fetch('/api/settings/provider-preferences', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ aniworld, sto })

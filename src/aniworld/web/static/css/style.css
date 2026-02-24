@@ -2665,6 +2665,38 @@ body[data-theme="dark"] .episode-progress-text {
     font-weight: 600;
 }
 
+.season-provider-badges {
+    display: flex;
+    gap: 0.5rem;
+    margin-right: 1rem;
+}
+
+.season-provider-badge {
+    background: rgba(159, 122, 234, 0.05);
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 4px;
+    white-space: nowrap;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.season-provider-badge:hover {
+    background: var(--tree-hover);
+    color: var(--text-secondary);
+    border-color: #9f7aea;
+}
+
+.season-provider-badge.active {
+    background: #9f7aea;
+    color: white;
+    border-color: #805ad5;
+    font-weight: 600;
+}
+
 .episode-lang-select {
     display: none;
 }

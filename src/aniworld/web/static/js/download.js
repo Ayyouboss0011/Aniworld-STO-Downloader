@@ -16,6 +16,7 @@ export const Download = {
         episodeLanguageSelections: {},
         episodeProviderSelections: {},
         languagePreferences: { aniworld: [], sto: [] },
+        providerPreferences: { aniworld: [], sto: [] },
         availableProviders: [],
         currentSessionId: 0
     },
@@ -36,7 +37,10 @@ export const Download = {
     },
 
     async init() {
-        await this.loadLanguagePreferences();
+        await Promise.all([
+            this.loadLanguagePreferences(),
+            this.loadProviderPreferences()
+        ]);
         this.initCustomDropdowns();
     },
 
@@ -97,6 +101,20 @@ export const Download = {
             }
         } catch (err) {
             console.error('Failed to load language preferences:', err);
+        }
+    },
+
+    async loadProviderPreferences() {
+        try {
+            const data = await API.getProviderPreferences();
+            if (data.success) {
+                this.state.providerPreferences = {
+                    aniworld: data.aniworld || [],
+                    sto: data.sto || []
+                };
+            }
+        } catch (err) {
+            console.error('Failed to load provider preferences:', err);
         }
     },
 
@@ -223,6 +241,7 @@ export const Download = {
                             epInCache.providers = data.providers;
                         }
                         this.updateSeasonLanguageBadges(ep.season);
+                        this.updateSeasonProviderBadges(ep.season);
                         this.updateTrackerPreview();
                     }
                 } catch (err) { console.error(`Auto-verify error for ${ep.season}x${ep.episode}:`, err); }
@@ -336,13 +355,29 @@ export const Download = {
             return;
         }
 
-        let selectedProv = this.state.episodeProviderSelections[episodeUrl];
-        if (!selectedProv && providers.length > 0) {
-            selectedProv = providers[0];
-        }
-        if (selectedProv) this.state.episodeProviderSelections[episodeUrl] = selectedProv;
+        const sitePrefs = this.state.currentDownloadData.site === 's.to' ? this.state.providerPreferences.sto : this.state.providerPreferences.aniworld;
 
-        providers.forEach(prov => {
+        // Sort providers based on preferences
+        const sortedProviders = [...providers].sort((a, b) => {
+            const indexA = sitePrefs ? sitePrefs.indexOf(a) : -1;
+            const indexB = sitePrefs ? sitePrefs.indexOf(b) : -1;
+
+            if (indexA === -1 && indexB === -1) return 0;
+            if (indexA === -1) return 1;
+            if (indexB === -1) return -1;
+            return indexA - indexB;
+        });
+
+        let selectedProv = this.state.episodeProviderSelections[episodeUrl];
+        if (!selectedProv) {
+            selectedProv = sitePrefs?.find(pref => providers.includes(pref));
+            if (!selectedProv && providers.length > 0) {
+                selectedProv = providers[0];
+            }
+            this.state.episodeProviderSelections[episodeUrl] = selectedProv;
+        }
+
+        sortedProviders.forEach(prov => {
             const badge = document.createElement('span');
             badge.className = 'provider-badge' + (prov === selectedProv ? ' active' : '');
             badge.textContent = prov.replace('streamtape', 'ST').replace('filemoon', 'FM').replace('vidmoly', 'VM').replace('vidoza', 'VZ');
@@ -461,7 +496,7 @@ export const Download = {
             // Toggle collapse logic
             header.addEventListener('click', (e) => {
                 // Don't toggle if clicking checkbox, label or language badges
-                if (e.target.closest('.season-checkbox') || e.target.closest('.season-label') || e.target.closest('.season-lang-badge')) {
+                if (e.target.closest('.season-checkbox') || e.target.closest('.season-label') || e.target.closest('.season-lang-badge') || e.target.closest('.season-provider-badge')) {
                     return;
                 }
                 seasonContainer.classList.toggle('collapsed');
@@ -500,6 +535,7 @@ export const Download = {
             });
             this.elements.episodeTree.appendChild(seasonContainer);
             this.updateSeasonLanguageBadges(seasonNum);
+            this.updateSeasonProviderBadges(seasonNum);
         });
         this.updateSelectedCount();
         if (episodesToVerify.length > 0) this.autoVerifyEpisodeLanguages(episodesToVerify);
@@ -534,6 +570,53 @@ export const Download = {
                     }
                 });
                 badgesContainer.querySelectorAll('.season-lang-badge').forEach(b => b.classList.remove('active'));
+                badge.classList.add('active');
+            });
+            badgesContainer.appendChild(badge);
+        });
+    },
+
+    updateSeasonProviderBadges(seasonNum) {
+        const season = this.state.availableEpisodes[seasonNum];
+        const header = this.elements.episodeTree.querySelector(`.season-header[data-season="${seasonNum}"]`);
+        if (!season || !header) return;
+
+        let badgesContainer = header.querySelector('.season-provider-badges') || document.createElement('div');
+        badgesContainer.className = 'season-provider-badges';
+        if (!header.querySelector('.season-provider-badges')) header.appendChild(badgesContainer);
+
+        const allProvs = new Set();
+        season.forEach(ep => ep.providers?.forEach(p => allProvs.add(p)));
+        if (allProvs.size === 0) { badgesContainer.innerHTML = ''; return; }
+
+        const sitePrefs = this.state.currentDownloadData.site === 's.to' ? this.state.providerPreferences.sto : this.state.providerPreferences.aniworld;
+
+        const sortedProvs = Array.from(allProvs).sort((a, b) => {
+            const indexA = sitePrefs ? sitePrefs.indexOf(a) : -1;
+            const indexB = sitePrefs ? sitePrefs.indexOf(b) : -1;
+
+            if (indexA === -1 && indexB === -1) return a.localeCompare(b);
+            if (indexA === -1) return 1;
+            if (indexB === -1) return -1;
+            return indexA - indexB;
+        });
+
+        badgesContainer.innerHTML = '';
+        sortedProvs.forEach(prov => {
+            const badge = document.createElement('span');
+            badge.className = 'season-provider-badge';
+            badge.textContent = prov.replace('streamtape', 'ST').replace('filemoon', 'FM').replace('vidmoly', 'VM').replace('vidoza', 'VZ');
+            badge.title = `Select ${prov} for all episodes in Season ${seasonNum}`;
+            badge.addEventListener('click', (e) => {
+                e.stopPropagation();
+                season.forEach(ep => {
+                    if (ep.providers?.includes(prov)) {
+                        this.state.episodeProviderSelections[ep.url] = prov;
+                        const epProvWrapper = document.querySelector(`.episode-provider-wrapper[data-episode-url="${ep.url}"]`);
+                        epProvWrapper?.querySelectorAll('.provider-badge').forEach(b => b.classList.toggle('active', b.title === prov));
+                    }
+                });
+                badgesContainer.querySelectorAll('.season-provider-badge').forEach(b => b.classList.remove('active'));
                 badge.classList.add('active');
             });
             badgesContainer.appendChild(badge);

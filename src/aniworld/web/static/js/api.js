@@ -13,6 +13,11 @@ const API = {
         return await res.json();
     },
 
+    async getProviderPreferences() {
+        const res = await fetch('/api/settings/provider-preferences');
+        return await res.json();
+    },
+
     async getDownloadPath() {
         const res = await fetch('/api/download-path');
         return await res.json();
