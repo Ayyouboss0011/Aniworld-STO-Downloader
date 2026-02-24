@@ -1496,6 +1496,20 @@ class Episode:
         if self._basic_details_filled:
             return
 
+        # Ensure site is detected from link if available
+        if self.link and not getattr(self, "_site_detected_from_link", False):
+            if "s.to" in self.link or "186.2.175.5" in self.link:
+                self.site = "s.to"
+                self.site_config = SUPPORTED_SITES["s.to"]
+                self.base_url = self.site_config["base_url"]
+                self.stream_path = self.site_config["stream_path"]
+            elif "aniworld.to" in self.link:
+                self.site = "aniworld.to"
+                self.site_config = SUPPORTED_SITES["aniworld.to"]
+                self.base_url = self.site_config["base_url"]
+                self.stream_path = self.site_config["stream_path"]
+            self._site_detected_from_link = True
+
         try:
             # Construct link if missing but have components
             if (
@@ -1562,7 +1576,14 @@ class Episode:
                         try:
                             # Improved slug extraction for different path structures
                             parts = self.link.rstrip("/").split("/")
-                            if "stream" in parts and parts.index("stream") + 1 < len(parts):
+                            
+                            # Special case for S.to paths like /serie/stream/SLUG/...
+                            if "serie" in parts and "stream" in parts:
+                                s_idx = parts.index("serie")
+                                st_idx = parts.index("stream")
+                                if st_idx == s_idx + 1 and len(parts) > st_idx + 1:
+                                    self.slug = parts[st_idx + 1]
+                            elif "stream" in parts and parts.index("stream") + 1 < len(parts):
                                 # Handle /serie/stream/[slug] or /anime/stream/[slug]
                                 potential_slug = parts[parts.index("stream") + 1]
                                 if potential_slug == "serie" and parts.index("stream") + 2 < len(parts):

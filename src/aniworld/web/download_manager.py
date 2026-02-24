@@ -121,6 +121,7 @@ class DownloadQueueManager:
             from ..common import get_season_episodes_details
             from ..entry import _detect_site_from_url
             from .. import config
+            from ..models import Episode
 
             debug(f"Starting scan. Current Stand: S{tracker['last_season']} E{tracker['last_episode']}")
             
@@ -142,11 +143,11 @@ class DownloadQueueManager:
             elif "/serie/stream/" in series_url:
                 slug = series_url.split("/serie/stream/")[-1].rstrip("/")
                 base_url = config.S_TO
-                stream_path = "serie"
+                stream_path = "serie/stream"
             elif config.S_TO in series_url and "/serie/" in series_url:
                 slug = series_url.split("/serie/")[-1].rstrip("/")
                 base_url = config.S_TO
-                stream_path = "serie"
+                stream_path = "serie/stream"
             else:
                 return
 
@@ -158,6 +159,7 @@ class DownloadQueueManager:
 
             debug(f"Found {len(all_seasons_details)} seasons")
             new_episodes = []
+            episodes_config = {}
             updated_s, updated_e = tracker["last_season"], tracker["last_episode"]
             sorted_seasons = sorted(all_seasons_details.keys())
 
@@ -168,52 +170,104 @@ class DownloadQueueManager:
                 for ep_detail in episodes:
                     e_num = ep_detail["episode"]
                     if s_num == tracker["last_season"] and e_num <= tracker["last_episode"]: continue
-                    available_langs = ep_detail.get("languages", [])
-                    is_available = False
-                    for l in available_langs:
-                        if (isinstance(l, int) and l == target_lang_id) or \
-                           (isinstance(l, str) and (l == target_language or "DE Dub" in l or "DE Sub" in l)):
-                            is_available = True
-                            break
-                    if not is_available:
-                        try:
-                            from ..models import Episode
-                            ep_url = f"{base_url}/serie/{slug}/staffel-{s_num}/episode-{e_num}" if base_url == config.S_TO else f"{base_url}/{stream_path}/{slug}/staffel-{s_num}/episode-{e_num}"
-                            debug(f"Verifying S{s_num}E{e_num} via episode page...")
-                            temp_ep = Episode(link=ep_url); temp_ep.auto_fill_details()
-                            verified_langs = temp_ep.language_name
+                    
+                    # Construct correct URL for verification
+                    ep_url = f"{base_url}/{stream_path}/{slug}/staffel-{s_num}/episode-{e_num}"
+                    
+                    # We MUST verify via episode page to get reliable provider/language info,
+                    # just like the manual download modal does with auto-verify.
+                    try:
+                        debug(f"Verifying S{s_num}E{e_num} via episode page...")
+                        temp_ep = Episode(link=ep_url)
+                        temp_ep.auto_fill_details()
+                        
+                        verified_langs = temp_ep.language_name
+                        verified_providers = temp_ep.provider_name
+                        
+                        debug(f"S{s_num}E{e_num}: Verified languages: {verified_langs}")
+                        debug(f"S{s_num}E{e_num}: Verified providers: {verified_providers}")
+                        
+                        is_available = False
+                        matched_lang = None
+                        
+                        # Use the same matching logic as the UI for language
+                        for l in verified_langs:
+                            l_norm, t_norm = l.lower(), target_language.lower()
+                            if l == target_language or l_norm == t_norm: 
+                                is_available = True
+                                matched_lang = l
+                                break
                             
-                            debug(f"S{s_num}E{e_num}: Verified languages: {verified_langs}")
-                            for l in verified_langs:
-                                l_norm, t_norm = l.lower(), target_language.lower()
-                                if l == target_language or l_norm == t_norm: is_available = True; break
-                                if "german dub" in t_norm or "de dub" in t_norm or "deutsch" in t_norm:
-                                    if "de dub" in l_norm or "german dub" in l_norm or "synchronisation" in l_norm or l_norm == "deutsch" or l_norm == "de": is_available = True; break
-                                elif "german sub" in t_norm or "de sub" in t_norm:
-                                    if "de sub" in l_norm or "german sub" in l_norm or "untertitel" in l_norm: is_available = True; break
-                                elif "english sub" in t_norm or "en sub" in t_norm:
-                                    if "en sub" in l_norm or "english sub" in l_norm or l_norm == "englisch" or l_norm == "en": is_available = True; break
-                                elif "english dub" in t_norm or "en dub" in t_norm:
-                                    if "en dub" in l_norm or "english dub" in l_norm or l_norm == "englisch" or l_norm == "en": is_available = True; break
+                            # Semantic matching fallbacks
+                            if "german dub" in t_norm or "de dub" in t_norm or "deutsch" in t_norm:
+                                if any(x in l_norm for x in ["de dub", "german dub", "synchronisation", "deutsch"]):
+                                    is_available = True; matched_lang = l; break
+                            elif "german sub" in t_norm or "de sub" in t_norm:
+                                if any(x in l_norm for x in ["de sub", "german sub", "untertitel"]):
+                                    is_available = True; matched_lang = l; break
+                            elif "english sub" in t_norm or "en sub" in t_norm:
+                                if any(x in l_norm for x in ["en sub", "english sub", "englisch", "en"]):
+                                    is_available = True; matched_lang = l; break
+                            elif "english dub" in t_norm or "en dub" in t_norm:
+                                if any(x in l_norm for x in ["en dub", "english dub", "englisch", "en"]):
+                                    is_available = True; matched_lang = l; break
+
+                        if is_available:
+                            # Now check provider availability for the matched language
+                            # The tracker has a preferred provider, but we should fallback if it's not available
+                            # exactly like the manual download does.
                             
-                            if is_available:
-                                # Also verify provider availability
-                                verified_providers = [p.lower() for p in temp_ep.provider_name]
-                                debug(f"S{s_num}E{e_num}: Verified providers: {verified_providers}")
-                                if tracker["provider"].lower() not in verified_providers and "auto" not in tracker["provider"].lower():
-                                    debug(f"S{s_num}E{e_num}: Required provider {tracker['provider']} not found in {verified_providers}")
-                                    is_available = False
-                        except Exception as e:
-                            debug(f"S{s_num}E{e_num}: Failed to verify: {e}", is_error=True)
-                    if not is_available: continue
-                    debug(f"FOUND NEW EPISODE: S{s_num} E{e_num}")
-                    ep_url = f"{base_url}/serie/{slug}/staffel-{s_num}/episode-{e_num}" if base_url == config.S_TO else f"{base_url}/{stream_path}/{slug}/staffel-{s_num}/episode-{e_num}"
-                    new_episodes.append(ep_url)
-                    if s_num > updated_s or (s_num == updated_s and e_num > updated_e):
-                        updated_s, updated_e = s_num, e_num
+                            selected_prov = None
+                            tracker_prov = tracker["provider"]
+                            
+                            # Check if preferred provider exists
+                            if tracker_prov in verified_providers:
+                                selected_prov = tracker_prov
+                            elif "auto" in tracker_prov.lower() or not tracker_prov:
+                                if verified_providers: selected_prov = verified_providers[0]
+                            else:
+                                # Fallback to any available provider if tracker preferred one isn't there
+                                # (Or we could be strict here, but manual download is flexible)
+                                if verified_providers:
+                                    debug(f"S{s_num}E{e_num}: Preferred provider {tracker_prov} not found, falling back to {verified_providers[0]}")
+                                    selected_prov = verified_providers[0]
+                            
+                            if selected_prov:
+                                debug(f"FOUND NEW EPISODE: S{s_num} E{e_num} ({matched_lang} via {selected_prov})")
+                                new_episodes.append(ep_url)
+                                episodes_config[ep_url] = {
+                                    "language": matched_lang,
+                                    "provider": selected_prov
+                                }
+                                
+                                if s_num > updated_s or (s_num == updated_s and e_num > updated_e):
+                                    updated_s, updated_e = s_num, e_num
+                            else:
+                                debug(f"S{s_num}E{e_num}: No provider found for {matched_lang}")
+                        else:
+                            debug(f"S{s_num}E{e_num}: Language {target_language} not found")
+                            
+                    except Exception as e:
+                        debug(f"S{s_num}E{e_num}: Failed to verify: {e}", is_error=True)
+
             if new_episodes:
-                self.add_download(anime_title=tracker["anime_title"], episode_urls=new_episodes, language=tracker["language"], provider=tracker["provider"], total_episodes=len(new_episodes), created_by=tracker["user_id"])
+                debug(f"Adding {len(new_episodes)} episodes to download queue")
+                self.add_download(
+                    anime_title=tracker["anime_title"], 
+                    episode_urls=new_episodes, 
+                    language=tracker["language"], 
+                    provider=tracker["provider"], 
+                    total_episodes=len(new_episodes), 
+                    created_by=tracker["user_id"],
+                    episodes_config=episodes_config
+                )
                 self.db.update_tracker_last_episode(tracker["id"], updated_s, updated_e)
+            else:
+                debug("No new episodes found in this scan")
+        except Exception as e:
+            debug(f"Fatal error during scan: {str(e)}", is_error=True)
+            import traceback
+            debug(traceback.format_exc(), is_error=True)
         except Exception as e:
             debug(f"Fatal error during scan: {str(e)}", is_error=True)
 
