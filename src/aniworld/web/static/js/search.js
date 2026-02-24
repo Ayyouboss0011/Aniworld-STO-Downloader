@@ -93,9 +93,9 @@ export const Search = {
     applyFilter() {
         let filtered = this.currentResults;
         if (this.currentFilter === 'series') {
-            filtered = this.currentResults.filter(r => r.site !== 'tmdb');
+            filtered = this.currentResults.filter(r => r.site !== 'movie4k' && r.site !== 'tmdb');
         } else if (this.currentFilter === 'movies') {
-            filtered = this.currentResults.filter(r => r.site === 'tmdb');
+            filtered = this.currentResults.filter(r => r.site === 'movie4k' || r.site === 'tmdb');
         }
         this.displaySearchResults(filtered);
     },
@@ -110,6 +110,8 @@ export const Search = {
             if (anime.cover) {
                 coverUrl = `https://image.tmdb.org/t/p/w1280${anime.cover}`;
             }
+        } else if (anime.site === 'movie4k') {
+            coverUrl = anime.cover;
         } else if (anime.cover) {
             coverUrl = anime.cover;
             if (!coverUrl.startsWith('http')) {
@@ -121,12 +123,12 @@ export const Search = {
             coverUrl = coverUrl.replace("150x225", "220x330");
         }
 
-        const isMovie = anime.site === 'tmdb';
+        const isMovie = anime.site === 'tmdb' || anime.site === 'movie4k';
 
         card.innerHTML = `
             <div class="anime-card-poster">
                 ${coverUrl ? `<img src="${coverUrl}" alt="${escapeHtml(anime.title)}">` : `<div class="no-poster"><i class="fas fa-film"></i></div>`}
-                ${anime.rating ? `<div class="card-rating"><i class="fas fa-star"></i> ${anime.rating.toFixed(1)}</div>` : ''}
+                ${anime.rating ? `<div class="card-rating"><i class="fas fa-star"></i> ${typeof anime.rating === 'number' ? anime.rating.toFixed(1) : anime.rating}</div>` : ''}
             </div>
             <div class="anime-card-content">
                 <div class="anime-title">${escapeHtml(anime.title)}</div>
