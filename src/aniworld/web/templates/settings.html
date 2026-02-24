@@ -82,6 +82,9 @@
                 <button class="settings-nav-item" data-section="providers">
                     <i class="fas fa-server"></i> Providers
                 </button>
+                <button class="settings-nav-item" data-section="downloads">
+                    <i class="fas fa-download"></i> Downloads
+                </button>
                 {% if auth_enabled and user.is_admin %}
                 <button class="settings-nav-item" data-section="users">
                     <i class="fas fa-users"></i> User Management
@@ -228,6 +231,42 @@
                         <div class="form-group button-group" style="margin-top: 2rem; display: flex; justify-content: flex-end;">
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-save"></i> Save Preferences
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- Download Settings Section -->
+                <section id="downloads" class="settings-section">
+                    <h2><i class="fas fa-download"></i> Download Settings</h2>
+                    <p class="text-muted" style="margin-bottom: 2rem;">Konfiguriere hier die Einstellungen für deine Downloads.</p>
+
+                    <form id="downloadSettingsForm" class="password-form">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+                            <div class="site-prefs" style="padding: 1.5rem; background: var(--bg-secondary); border-radius: 12px; display: flex; flex-direction: column; gap: 1.5rem;">
+                                <div class="form-group">
+                                    <label for="maxConcurrentSeries" style="display: flex; align-items: center; gap: 10px;">
+                                        <i class="fas fa-tv" style="color: #667eea; width: 20px;"></i> Parallel Serien
+                                    </label>
+                                    <div style="display: flex; align-items: center; gap: 15px;">
+                                        <input type="number" id="maxConcurrentSeries" min="1" max="5" value="1" style="flex: 0 0 80px;">
+                                        <small class="text-muted">Wie viele Serien/Filme gleichzeitig?</small>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="maxConcurrentEpisodes" style="display: flex; align-items: center; gap: 10px;">
+                                        <i class="fas fa-layer-group" style="color: #764ba2; width: 20px;"></i> Parallel Episoden
+                                    </label>
+                                    <div style="display: flex; align-items: center; gap: 15px;">
+                                        <input type="number" id="maxConcurrentEpisodes" min="1" max="10" value="1" style="flex: 0 0 80px;">
+                                        <small class="text-muted">Wie viele Episoden pro Serie gleichzeitig?</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group button-group" style="margin-top: 2rem; display: flex; justify-content: flex-end;">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Settings
                             </button>
                         </div>
                     </form>
@@ -448,6 +487,7 @@
             loadSettings();
             loadLanguagePreferences();
             loadProviderPreferences();
+            loadDownloadSettings();
 
             // User dropdown functionality
             const userDropdownBtn = document.getElementById('user-dropdown-btn');
@@ -539,6 +579,25 @@
                 }
             }
 
+            async function loadDownloadSettings() {
+                try {
+                    const response = await fetch('/api/settings/downloads');
+                    const data = await response.json();
+                    if (data.success) {
+                        const seriesInput = document.getElementById('maxConcurrentSeries');
+                        const episodesInput = document.getElementById('maxConcurrentEpisodes');
+                        if (seriesInput && data.max_concurrent_series) {
+                            seriesInput.value = data.max_concurrent_series;
+                        }
+                        if (episodesInput && data.max_concurrent_episodes) {
+                            episodesInput.value = data.max_concurrent_episodes;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to load download settings:', error);
+                }
+            }
+
             async function loadProviderPreferences() {
                 try {
                     const response = await fetch('/api/settings/provider-preferences');
@@ -608,6 +667,34 @@
                         }
                     } catch (error) {
                         showMessage('Failed to save preferences: ' + error.message, 'error');
+                    }
+                });
+            }
+
+            // Download settings form
+            const downloadSettingsForm = document.getElementById('downloadSettingsForm');
+            if (downloadSettingsForm) {
+                downloadSettingsForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const maxSeries = document.getElementById('maxConcurrentSeries').value;
+                    const maxEpisodes = document.getElementById('maxConcurrentEpisodes').value;
+                    try {
+                        const response = await fetch('/api/settings/downloads', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                max_concurrent_series: maxSeries,
+                                max_concurrent_episodes: maxEpisodes
+                            })
+                        });
+                        const data = await response.json();
+                        if (data.success) {
+                            showMessage(data.message, 'success');
+                        } else {
+                            showMessage(data.error, 'error');
+                        }
+                    } catch (error) {
+                        showMessage('Failed to save download settings: ' + error.message, 'error');
                     }
                 });
             }

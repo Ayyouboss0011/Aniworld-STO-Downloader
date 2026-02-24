@@ -381,7 +381,8 @@
 }
 
 .form-group input[type="text"],
-.form-group input[type="password"] {
+.form-group input[type="password"],
+.form-group input[type="number"] {
     padding: 0.75rem;
     border: 1px solid var(--border-color);
     border-radius: 8px;
@@ -389,7 +390,35 @@
     color: var(--text-primary);
     font-size: 1rem;
     width: 100%;
+    transition: all 0.3s ease;
     /* Use full width of grid column */
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="password"]:focus,
+.form-group input[type="number"]:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+    background: var(--bg-tertiary);
+}
+
+/* Chrome, Safari, Edge, Opera */
+.form-group input::-webkit-outer-spin-button,
+.form-group input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+.form-group input[type=number] {
+  -moz-appearance: textfield;
+}
+
+.form-group input[type="number"] {
+    text-align: center;
+    font-weight: 600;
+    max-width: 100px;
 }
 
 /* Custom styled checkbox */
