@@ -250,19 +250,25 @@ def _execute_download(
             # Update web progress if callback provided
             if web_progress_callback:
                 try:
+                    # Thread safety: ensure callback doesn't block or crash
                     web_progress_callback(d)
                 except KeyboardInterrupt:
                     # Re-raise KeyboardInterrupt to stop download
                     raise
                 except Exception as e:
-                    logging.warning(f"Web progress callback error: {e}")
+                    logging.warning(f"Web progress callback error for {episode_title}: {e}")
 
         # Build yt-dlp options
+        # Ensure deep copy of headers if any to prevent shared state
         options = _build_ytdl_options(str(output_path), anime, combined_progress_hook)
 
-        # Execute download with yt-dlp
-        with yt_dlp.YoutubeDL(options) as ydl:
+        # Execute download with yt-dlp - Create FRESH instance for EACH thread
+        try:
+            ydl = yt_dlp.YoutubeDL(options)
             ydl.download([direct_link])
+        except Exception as dl_err:
+            logging.error(f"yt-dlp core error for {episode_title}: {dl_err}")
+            return False
 
         print("")  # New line after progress bar
         return True

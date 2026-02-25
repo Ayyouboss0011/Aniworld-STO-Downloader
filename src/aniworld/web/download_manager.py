@@ -510,7 +510,9 @@ class DownloadQueueManager:
     def _download_single_episode(self, queue_id, anime, episode, job, download_dir, ep_lock):
         """Worker function for a single episode download within a job"""
         # Small delay to prevent hammering the server with parallel link fetching
-        time.sleep(1.0)
+        # We use a bit more jitter for safer parallel starts
+        import random
+        time.sleep(random.uniform(0.5, 2.0))
         original_link = episode.link
         episode_info = f"{anime.title} - Episode {episode.episode} (Season {episode.season})"
         
@@ -772,7 +774,12 @@ class DownloadQueueManager:
 
     def _update_download_status(self, queue_id: int, status: str, completed_episodes: int = None, current_episode: str = None, error_message: str = None, total_episodes: int = None, current_episode_progress: float = None):
         with self._queue_lock:
-            if queue_id not in self._active_downloads: return False
+            if queue_id not in self._active_downloads: 
+                # Check if it was already moved to history
+                for d in self._completed_downloads:
+                    if d["id"] == queue_id: return True
+                return False
+                
             d = self._active_downloads[queue_id]
             
             # Ensure required fields exist (safety)
@@ -780,6 +787,10 @@ class DownloadQueueManager:
             if "total_episodes" not in d: d["total_episodes"] = 0
             if "started_at" not in d: d["started_at"] = None
             
+            # Prevent status regression (don't go back from completed/failed to downloading)
+            if d["status"] in ["completed", "failed"] and status == "downloading":
+                return True
+
             d["status"] = status
             if total_episodes is not None: d["total_episodes"] = total_episodes
             if completed_episodes is not None: d["completed_episodes"] = completed_episodes
