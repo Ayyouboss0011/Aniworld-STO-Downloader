@@ -1,0 +1,23 @@
+services:
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - 8888:8888/tcp # HTTP proxy
+      - 8388:8388/tcp # Shadowsocks
+      - 8388:8388/udp # Shadowsocks
+      - ${WEB_PORT:-3005}:${WEB_PORT:-3005} # Aniworld Web UI
+    volumes:
+      - ${GLUETUN_PATH:-./data/gluetun}:/gluetun
+    environment:
+      - VPN_SERVICE_PROVIDER=windscribe
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=qGxxqx7sxZLCAiSuLivb8cPJHl6bLJkl9qnDjFGFAFA=
+      - WIREGUARD_ADDRESSES=100.102.15.3/32
+      - TZ=${TZ:-Europe/Berlin}
+      - UPDATER_PERIOD=${UPDATER_PERIOD:-24h}
+    restart: unless-stopped
