@@ -296,9 +296,32 @@ class DownloadQueueManager:
             episodes.append({"url": url, "name": ep_name, "status": "queued", "progress": 0.0, "speed": "", "eta": ""})
         with self._queue_lock:
             queue_id = self._next_id; self._next_id += 1
-            job = {"id": queue_id, "anime_title": anime_title, "episode_urls": episode_urls, "episodes": episodes, "language": language, "provider": provider, "is_movie": is_movie, "episodes_config": episodes_config, "total_episodes": total_episodes, "completed_episodes": 0, "status": "queued", "current_episode": "", "progress_percentage": 0.0, "current_episode_progress": 0.0, "error_message": "", "created_by": created_by, "created_at": datetime.now(), "started_at": None, "completed_at": None}
+            job = {
+                "id": queue_id, 
+                "anime_title": anime_title, 
+                "episode_urls": episode_urls, 
+                "episodes": episodes, 
+                "language": language, 
+                "provider": provider, 
+                "is_movie": is_movie, 
+                "episodes_config": episodes_config, 
+                "total_episodes": total_episodes, 
+                "completed_episodes": 0, 
+                "status": "queued", 
+                "current_episode": "", 
+                "progress_percentage": 0.0, 
+                "current_episode_progress": 0.0, 
+                "error_message": "", 
+                "created_by": created_by, 
+                "created_at": datetime.now(), 
+                "started_at": None, 
+                "completed_at": None
+            }
             self._active_downloads[queue_id] = job
-        if not self.is_processing: self.start_queue_processor()
+            logging.info(f"Added job {queue_id} to queue: {anime_title} ({total_episodes} eps)")
+            
+        if not self.is_processing: 
+            self.start_queue_processor()
         return queue_id
 
     def get_queue_status(self):
@@ -318,6 +341,7 @@ class DownloadQueueManager:
             try:
                 # Clean up finished threads
                 with self._worker_lock:
+                    # Thread safety: ensure we don't hold references to finished threads
                     self.active_worker_threads = [t for t in self.active_worker_threads if t.is_alive()]
                     active_count = len(self.active_worker_threads)
 
@@ -466,12 +490,18 @@ class DownloadQueueManager:
                 if queue_id in self._active_downloads:
                     job_data = self._active_downloads[queue_id]
                     successful = sum(1 for e in job_data["episodes"] if e["status"] == "completed")
-                    total_att = sum(1 for e in job_data["episodes"] if e["status"] in ["completed", "failed"])
+                    total_att = sum(1 for e in job_data["episodes"] if e["status"] in ["completed", "failed", "cancelled"])
                     
                     if successful == 0 and total_att > 0: status, msg = "failed", f"Failed: 0/{total_att} done."
-                    elif total_att < len(job_data["episodes"]): status, msg = "completed", f"Partial: {successful}/{len(job_data['episodes'])} done." # Should not happen if iterator finished
-                    else: status, msg = "completed", f"Done: {successful} eps."
+                    # If we have some successful, or if all were processed (even if some failed)
+                    else: status, msg = "completed", f"Done: {successful}/{len(job_data['episodes'])} eps."
                     
+                    # Force progress to 100% on completion
+                    if status == "completed":
+                        job_data["progress_percentage"] = 100.0
+                        job_data["current_episode_progress"] = 100.0
+                    
+                    # Set completed_episodes explicitly to match total successful
                     self._update_download_status(queue_id, status, completed_episodes=successful, current_episode=msg, error_message=msg if status=="failed" else None)
         except Exception as e: 
             logging.error(f"Error in _process_download_job: {e}")
@@ -479,6 +509,8 @@ class DownloadQueueManager:
 
     def _download_single_episode(self, queue_id, anime, episode, job, download_dir, ep_lock):
         """Worker function for a single episode download within a job"""
+        # Small delay to prevent hammering the server with parallel link fetching
+        time.sleep(1.0)
         original_link = episode.link
         episode_info = f"{anime.title} - Episode {episode.episode} (Season {episode.season})"
         
@@ -741,21 +773,49 @@ class DownloadQueueManager:
     def _update_download_status(self, queue_id: int, status: str, completed_episodes: int = None, current_episode: str = None, error_message: str = None, total_episodes: int = None, current_episode_progress: float = None):
         with self._queue_lock:
             if queue_id not in self._active_downloads: return False
-            d = self._active_downloads[queue_id]; d["status"] = status
+            d = self._active_downloads[queue_id]
+            
+            # Ensure required fields exist (safety)
+            if "completed_episodes" not in d: d["completed_episodes"] = 0
+            if "total_episodes" not in d: d["total_episodes"] = 0
+            if "started_at" not in d: d["started_at"] = None
+            
+            d["status"] = status
             if total_episodes is not None: d["total_episodes"] = total_episodes
             if completed_episodes is not None: d["completed_episodes"] = completed_episodes
             if current_episode_progress is not None: d["current_episode_progress"] = min(100.0, max(0.0, float(current_episode_progress)))
-            t, c, cp = d["total_episodes"], d["completed_episodes"], d.get("current_episode_progress", 0.0)
-            if t > 0: d["progress_percentage"] = float(min(100.0, ((int(c) + (float(cp)/100.0))/int(t))*100.0 if status == "downloading" else (int(c)/int(t))*100.0))
+            
+            t = d["total_episodes"]
+            c = d["completed_episodes"]
+            cp = d.get("current_episode_progress", 0.0)
+            
+            if t > 0: 
+                if status == "downloading":
+                    d["progress_percentage"] = float(min(100.0, ((int(c) + (float(cp)/100.0))/int(t))*100.0))
+                else:
+                    # For completed/failed, just use the count of finished episodes
+                    d["progress_percentage"] = float(min(100.0, (int(c)/int(t))*100.0))
+            
             if current_episode is not None: d["current_episode"] = current_episode
             if error_message is not None: d["error_message"] = error_message
-            if status == "downloading" and d["started_at"] is None: d["started_at"] = datetime.now()
+            
+            if status == "downloading" and d["started_at"] is None: 
+                d["started_at"] = datetime.now()
             elif status in ["completed", "failed"]:
                 d["completed_at"] = datetime.now()
-                if status == "completed": d["current_episode_progress"], d["progress_percentage"] = 100.0, 100.0
-                self._completed_downloads.append(d.copy())
-                if len(self._completed_downloads) > self._max_completed_history: self._completed_downloads = self._completed_downloads[-self._max_completed_history:]
+                if status == "completed": 
+                    d["current_episode_progress"] = 100.0
+                    d["progress_percentage"] = 100.0
+                
+                # Copy for history before deletion
+                completed_copy = d.copy()
+                self._completed_downloads.append(completed_copy)
+                if len(self._completed_downloads) > self._max_completed_history: 
+                    self._completed_downloads = self._completed_downloads[-self._max_completed_history:]
+                
                 del self._active_downloads[queue_id]
+                logging.info(f"Job {queue_id} moved to completed history with status {status}")
+                
             return True
 
 
